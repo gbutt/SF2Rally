@@ -1,0 +1,3 @@
+<apex:page showHeader="false" sidebar="false" standardController="Case" extensions="ctr_Case2Rally">
+	
+</apex:page>
