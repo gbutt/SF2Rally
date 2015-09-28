@@ -16,3 +16,5 @@ mm.log
 #  execute anonymous functionality, while keeping named scripts
 apex-scripts/*
 !apex-scripts/*.cls
+
+scratch/
