@@ -4,14 +4,7 @@
 		padding: 20px;
 	}
 	</style>
-	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-	<script type="text/javascript">
-		// how to reference jquery in visualforce
-		j$ = jQuery.noConflict();
-		// if you really want to use the $ reference, use it in an immediately invoked function like this
-		(function($){
-		})(j$);
-	</script>
+	<c:jquery />
 
 
 	<div class="casetorally">
@@ -27,177 +20,72 @@
 		<select id="alm_artifact_type"></select>
 		<br />
 
-		<input id="create" type="button" value="Create"></input>
+		<input id="btn_create" type="button" value="Create"></input>
 	</div>
 
 
+
+	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/case2rally.js')}"></apex:includeScript>
 
 	<script type="text/javascript">
 
 		var config = {
 			almBaseUrl: 'https://rally1.rallydev.com/slm/webservice/v2.0/'
 			,apiKey: '{!$Setup.Case2Rally__c.API_Key__c}'
+			,jsonp: true
 		}
 
-		// let's create a javascript client for ALM!
-		var my = (function(config) {
-			
-			var userDefaults = {};
-			var workspaceCache = [];
-			var projectCache = {};
-
-			var parseOidFromUrl = function(url) {
-				return url.substring(url.lastIndexOf('/')+1);
-			}
-
-			var almGet = function(url, success) {
-				j$.ajax({
-				  type: 'GET',
-				  jsonp: 'jsonp',
-				  dataType: 'jsonp',
-				  headers: {
-				    zsessionid: config.apiKey
-				  },
-				  url: config.almBaseUrl+url,
-				  success: success
-				});
-			}
-
-			// load user defaults for workspace oid and project oid
-			// cache results in userDefaults
-			var getUserDefaults = function(callback) {
-				if (userDefaults.workspaceOid === undefined) {
-					almGet('user:current', function(data) {
-						var partialUrl = data.User.UserProfile._ref.replace(config.almBaseUrl,'');
-						almGet(partialUrl, function(data) {
-							var projectOid = parseOidFromUrl( data.UserProfile.DefaultProject._ref );
-							var workspaceOid = parseOidFromUrl( data.UserProfile.DefaultWorkspace._ref );
-							userDefaults = {
-								projectOid: projectOid 
-								,workspaceOid: workspaceOid
-							};
-							callback(userDefaults);
-						})
-					})
-				} else {
-					callback(userDefaults);
-				}
-			}
-
-			// load all workspaces
-			// cache results in workspaceCache
-			var getAlmWorkspaces = function(callback) {
-				if(workspaceCache.length == 0) {
-					var url = 'workspace?workspace=null&order=Name';
-					almGet(url,function(data) {
-						var results = data.QueryResult.Results;
-						j$.each(results, function(k, v) {
-							var name = v._refObjectName;
-							var oid = parseOidFromUrl( v._ref );
-							workspaceCache.push({'name':name, 'oid':oid})
-						})
-						callback(workspaceCache);
-					});
-				} else {
-					callback(workspaceCache);
-				}
-			}
-
-			// load all projects for the specified workspace
-			// cache results in projectCache
-			var getAlmProjects = function(workspaceOid, callback) {
-				var localProjects = projectCache[workspaceOid];
-				if(localProjects === undefined) {
-					localProjects = [];
-					projectCache[workspaceOid] = localProjects;
-					
-					var urlBase = 'projects?workspace=/workspace/'+workspaceOid+'&order=Name';
-					almGet(urlBase+'&pagesize=200', function(data) {
-
-						// create results handler
-						var totalRecords = data.QueryResult.TotalResultCount;
-						var resultsHandler = function(data) {
-							j$.each(data.QueryResult.Results, function(k,v) {
-								var name = v._refObjectName;
-								var oid = parseOidFromUrl( v._ref );
-								localProjects.push({'name':name, 'oid':oid})
-							});
-							// issue callback once we have all projects
-							if (localProjects.length >= totalRecords) {
-								callback(localProjects);
-							}
-						};
-						resultsHandler(data);
-
-						// fetch additional projects
-						if (totalRecords > 200) {
-							var iterations = Math.floor(totalRecords/200);
-							for (var i = iterations; i > 0; i--) {
-								var start = 200*i+1;
-								almGet(urlBase+'&start='+start+'&pagesize=200', resultsHandler);
-							};
-						}
-					})
-				} else {
-					callback(localProjects);
-				}
-			}
-
-			
-
-			return {
-				getAlmWorkspaces : getAlmWorkspaces
-				,getAlmProjects : getAlmProjects
-				,getUserDefaults : getUserDefaults
-			};
-
-		})(config);
+		var my = case2rally(config);
 
 		// we do the actual work here
 		j$(function(){
+			j$('.casetorally').hide();
 			// get case id
 			var caseId = '{!Case.id}';
-			// is this case linked to an existing artifact?
-			
-			// yes
-			// load selected fields and values from this artifact
-			// write them to the page
 
-
-
-			// no
 			// load user defaults - then load workspaces and projects
 			my.getUserDefaults(function(userDefaults) {
-				// load all workspaces
-				my.getAlmWorkspaces(function(workspaces) {
-					j$('#alm_workspace').find('option').remove();
-					j$.each(workspaces, function(key, value) {
-					     j$('#alm_workspace')
+				var bindAlmDataToDdl = function(selector, values, defaultValue) {
+					j$(selector).find('option').remove();
+					j$.each(values, function(key, value) {
+					     j$(selector)
 					         .append(j$("<option></option>")
 					         .attr("value",value.oid)
-					         .text(value.name)); 
+					         .text(value.name));
 					});
-					j$('#alm_workspace').val(userDefaults.workspaceOid);
-				});
+					if (defaultValue) {
+						j$(selector).val(defaultValue);
+					}
+					j$(selector).trigger('bound');
+				}
+				var bindProjects = function(projects) {
+					bindAlmDataToDdl('#alm_project', projects, userDefaults.projectOid);
+				};
+				var bindWorkspaces = function(workspaces) {
+					bindAlmDataToDdl('#alm_workspace', workspaces, userDefaults.workspaceOid);
+				};
+				var bindArtifacts = function(artifacts) {
+					bindAlmDataToDdl('#alm_artifact_type', artifacts);
+				}
 
-				// load all projects
-				my.getAlmProjects(userDefaults.workspaceOid, function(projects) {
-					j$('#alm_project').find('option').remove();
-					j$.each(projects, function(key, value) {
-					     j$('#alm_project')
-					         .append(j$("<option></option>")
-					         .attr("value",value.oid)
-					         .text(value.name)); 
-					});
-					j$('#alm_project').val(userDefaults.projectOid);
-				})
+				
+
+				j$('#alm_workspace').on('bound change', function() {
+					var workspaceOid = j$('#alm_workspace').val();
+					my.getAlmProjects(workspaceOid, bindProjects);
+					my.getAlmTypeDefinitions(workspaceOid, bindArtifacts);
+				});
+				my.getAlmWorkspaces(bindWorkspaces);
 			});
-			
-			
-			
-			// show selects for workspace and project, defaulted with user defaults
-			// show select for creating a defect or user story
-			// show create button
+
+			j$('#btn_create').on('click', function(){
+
+			});
+
+			// show form
+			j$('#alm_project').on('bound', function() {
+				j$('.casetorally').show();
+			});
 		});
 	</script>
 

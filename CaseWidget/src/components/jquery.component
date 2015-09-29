@@ -1,0 +1,6 @@
+<apex:component >
+    <apex:includeScript value="{!URLFOR($Resource.jquery214)}"/>
+    <script type="text/javascript">
+        j$ = jQuery.noConflict();
+    </script>
+</apex:component>
