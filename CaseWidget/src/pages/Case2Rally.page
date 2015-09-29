@@ -32,7 +32,6 @@
 		var config = {
 			almBaseUrl: 'https://rally1.rallydev.com/slm/webservice/v2.0/'
 			,apiKey: '{!$Setup.Case2Rally__c.API_Key__c}'
-			,jsonp: true
 		}
 
 		var my = case2rally(config);
@@ -48,14 +47,14 @@
 				var bindAlmDataToDdl = function(selector, values, defaultValue) {
 					j$(selector).find('option').remove();
 					j$.each(values, function(key, value) {
-					     j$(selector)
+					     var option = j$(selector)
 					         .append(j$("<option></option>")
 					         .attr("value",value.oid)
 					         .text(value.name));
+					     if (defaultValue === value.oid){
+					     	j$(selector).val(defaultValue);
+					     }
 					});
-					if (defaultValue) {
-						j$(selector).val(defaultValue);
-					}
 					j$(selector).trigger('bound');
 				}
 				var bindProjects = function(projects) {
