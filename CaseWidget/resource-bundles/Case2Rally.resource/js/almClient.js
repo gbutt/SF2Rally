@@ -1,4 +1,4 @@
-var case2rally = function(config) {
+var almClient = function(config) {
 
 	var almGetCallCache = {};
 
@@ -6,13 +6,26 @@ var case2rally = function(config) {
 		return url.substring(url.lastIndexOf('/')+1);
 	}
 
+	var almPost = function(url, dataObject, success) {
+		var	requestUrl = (url.substring(0,4) === 'http') ? url : config.almBaseUrl+url;
+		var ajaxConfig = buildAjaxConfig('POST', requestUrl, success);
+		ajaxConfig.data = JSON.stringify(dataObject);
+		ajaxConfig.contentType = 'application/json';
+
+		j$.ajax(ajaxConfig);
+	}
+
 	var almGet = function(url, success) {
-		var	requestUrl = (url.substring(0,4) === 'http') ? url : config.almBaseUrl+url,
-			ajaxConfig = buildAjaxConfig('GET', requestUrl, success);
+		var	requestUrl = (url.substring(0,4) === 'http') ? url : config.almBaseUrl+url;
+		var ajaxConfig = buildAjaxConfig('GET', requestUrl, function(data) {
+		  	almGetCallCache[url] = data;
+		  	success(data);
+	  	});
+
 		if (almGetCallCache[requestUrl]){
 		 	success( almGetCallCache[requestUrl] );
 		} else {
-			j$.ajax(ajaxConfig);	
+			j$.ajax(ajaxConfig);
 		}
 	}
 
@@ -20,12 +33,9 @@ var case2rally = function(config) {
 		return {
 			  type: method,
 			  url: url,
-			  success: function(data){
-			  	almGetCallCache[url] = data;
-			  	success(data);
-			  },
 			  dataType : 'json',
-			  headers : {zsessionid: config.apiKey}
+			  headers : {zsessionid: config.apiKey},
+			  success: success
 			};	
 	}
 
@@ -63,6 +73,18 @@ var case2rally = function(config) {
 		});
 	}
 
+	var getAlmWorkspaceByName = function(workspaceName, callback) {
+		var url = 'workspace?workspace=null&query=(Name = "'+workspaceName+'")&fetch=ObjectID';
+		almGet(url,function(data) {
+			var results = data.QueryResult.Results;
+			if (results.length !== 1) {
+				throw "Bad workspace name";
+			}
+
+			callback(results[0]);
+		});
+	}
+
 	// load all projects for the specified workspace
 	// cache results in projectCache
 	var getAlmProjects = function(workspaceOid, callback) {			
@@ -96,32 +118,21 @@ var case2rally = function(config) {
 		})
 	}
 
-	var getAlmTypeDefinitions = function(workpaceOid, callback) {
-		var	url = 'typedefinition?workspace=/workspace/'+workpaceOid+'&order=Name&pagesize=200&fetch=ObjectID&query=((Name = "Defect") OR (Name = "Hierarchical Requirement"))';
-		almGet(url, function(data) {
-			var results = data.QueryResult.Results,
-				typeDefinitions = [];
-			j$.each(results, function(k, v) {
-				var name = v._refObjectName;
-				if (name == 'Hierarchical Requirement') {
-					name = 'User Story';
-				}
-				var oid = v.ObjectID;
-				if (name == 'User Story' || name == 'Defect') {
-					typeDefinitions.push({'name':name, 'oid':oid});
-				}
-			})
-			callback(typeDefinitions);
-		});
+	var createArtifact = function(projectOid, typeDef, artifact, callback) {
+		var url = typeDef+'/create';
+		var artifactBody = {}
+		artifact.Project = '/project/' + projectOid;
+		artifactBody[typeDef] = artifact;
+		almPost(url, artifactBody, callback);
 	}
-
 	
 
 	return {
 		getAlmWorkspaces : getAlmWorkspaces
+		,getAlmWorkspaceByName : getAlmWorkspaceByName
 		,getAlmProjects : getAlmProjects
 		,getUserDefaults : getUserDefaults
-		,getAlmTypeDefinitions : getAlmTypeDefinitions
+		,createArtifact : createArtifact
 	};
 
 };

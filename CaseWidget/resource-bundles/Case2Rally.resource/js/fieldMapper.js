@@ -67,7 +67,6 @@ rally.getRallyConnectionInformation = function () {
   // rally.username = '';
   // rally.password = '';
   rally.baseUrl = 'https://rally1.rallydev.com';
-  rally.workspace = 'Rally';
   rally.webserviceUrl = rally.baseUrl + ':443/slm/webservice/' + rally.protocol_version;
   rally.schemaUrl = rally.baseUrl + ':443/slm/schema/' + rally.protocol_version;
   rally.detailUrl = rally.baseUrl + '/slm/detail';
@@ -174,8 +173,7 @@ rally.injectContent = function (injectTag, content) {
 };
 
 rally.workspaceRef = "";
-rally.getWorkspaceOid = function (name) {
-  rally.getWorkspaceOid.WSName = name;
+rally.getWorkspaceOid = function () {
   rally.agentHeader("Find Workspace");
 
   var onSuccess = function(data) {
@@ -186,58 +184,24 @@ rally.getWorkspaceOid = function (name) {
   var onFailure = function(data) {
     console.log(data);
   };
-  rally.almGet(rally.webserviceUrl + '/workspace?fetch=ObjectID,SchemaVersion', onSuccess, onFailure, true);
-  //rally.almGet(rally.webserviceUrl + '/workspace?query=(Name = "' + name + '")&fetch=true', onSuccess, onFailure)
-
-  // sforce.connection.remoteFunction({
-  //     url: rally.webserviceUrl + "/subscription.js?query=&fetch=true",
-  //     method: 'GET',
-  //     requestHeaders: rally.requestHeader,
-  //     async: false,
-  //     onSuccess: rally.getWorkspaceOid.successResponse,
-  //     onFailure: rally.getWorkspaceOid.failureResponse }
-  // );
+  rally.almGet(rally.webserviceUrl + '/workspace?workspace=null&query=(Name = "'+rally.workspace+'")&fetch=ObjectID,SchemaVersion', onSuccess, onFailure, true);
 };
 
-// rally.getWorkspaceOid.successResponse = function (response) {
-//   var jsResponse = YAHOO.lang.JSON.parse(response);
-//   var projectNode = "";
-//   docStr = rally.getWorkspaceOid.checkResponseErrors(jsResponse);
-
-//   if (docStr.length > 0) {
-//     alert("Error retrieving Workspace data: " + docStr);
-//     return;
+// rally.getWorkspaceOid.checkResponseErrors = function (jsResponse) {
+//   var data = "";
+//   if (jsResponse.QueryResult.Errors.length > 0) {
+//     data = jsResponse.QueryResult.Errors[0];
 //   }
-
-//   rally.workspaceRef = "";
-//   var workspaces = jsResponse.QueryResult.Results[0].Workspaces;
-//   for (var i = 0; i < workspaces.length; i++) {
-//     if (workspaces[i]._refObjectName == rally.getWorkspaceOid.WSName) {
-//       rally.workspaceRef = workspaces[i]._ref;
-//     }
+//   if (jsResponse.QueryResult.Results.length == 0) {
+//     data = "Workspace " + rally.workspace + " is not a valid Rally Workspace";
 //   }
-//   if (rally.workspaceRef.length == 0) {
-//     alert("Error: Workspace " + rally.workspace + " does not exist.");
-
-//   }
-
+//   return data;
 // };
 
-rally.getWorkspaceOid.checkResponseErrors = function (jsResponse) {
-  var data = "";
-  if (jsResponse.QueryResult.Errors.length > 0) {
-    data = jsResponse.QueryResult.Errors[0];
-  }
-  if (jsResponse.QueryResult.Results.length == 0) {
-    data = "Workspace " + rally.workspace + " is not a valid Rally Workspace";
-  }
-  return data;
-};
-
-rally.getWorkspaceOid.failureResponse = function (response, request) {
-  rally.genericFailureHandler(response, request);
-  rally.exit();
-};
+// rally.getWorkspaceOid.failureResponse = function (response, request) {
+//   rally.genericFailureHandler(response, request);
+//   rally.exit();
+// };
 
 rally.projectTree = "";
 rally.getProjectTree = function (workspaceRef) {

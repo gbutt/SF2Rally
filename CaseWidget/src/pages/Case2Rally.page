@@ -1,85 +1,116 @@
 <apex:page showHeader="false" sidebar="false" standardController="Case" extensions="ctr_Case2Rally">
 	<style type="text/css">
-	.casetorally {
-		padding: 20px;
-	}
+		.casetorally {
+			padding: 20px;
+		}
 	</style>
-	<c:jquery />
-
+	
+	<div class="linkedArtifacts"></div>
 
 	<div class="casetorally">
-		<label for="alm_workspace">Workspace: </label>
-		<select id="alm_workspace"></select>
-		<br />
-
 		<label for="alm_project">Project: </label>
 		<select id="alm_project"></select>
 		<br />
 
 		<label for="alm_artifact_type">Artifact Type: </label>
-		<select id="alm_artifact_type"></select>
+		<select id="alm_artifact_type">
+			<option value='defect'>Defect</option>
+			<option value='hierarchicalrequirement'>User Story</option>
+		</select>
 		<br />
 
 		<input id="btn_create" type="button" value="Create"></input>
 	</div>
 
 
+	<c:jquery />
+	<script src="/soap/ajax/34.0/connection.js" type="text/javascript"></script>
+	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/almClient.js')}"></apex:includeScript>
+	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/sfdcClient.js')}"></apex:includeScript>
 
-	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/case2rally.js')}"></apex:includeScript>
+	<script type="text/javascript">	
 
-	<script type="text/javascript">
+		var sf = sfdcClient( {sessionId: '{!$Api.Session_ID}'} );
 
 		var config = {
 			almBaseUrl: 'https://rally1.rallydev.com/slm/webservice/v2.0/'
 			,apiKey: '{!$Setup.Case2Rally__c.API_Key__c}'
 		}
+		var alm = almClient(config);
 
-		var my = case2rally(config);
+		
 
 		// we do the actual work here
 		j$(function(){
+			j$('.linkedArtifacts').hide();
 			j$('.casetorally').hide();
 			// get case id
 			var caseId = '{!Case.id}';
 
-			// load user defaults - then load workspaces and projects
-			my.getUserDefaults(function(userDefaults) {
+			// load user defaults - then load projects
+			var bindCreateForm = function(userDefaults) {
 				var bindAlmDataToDdl = function(selector, values, defaultValue) {
-					j$(selector).find('option').remove();
-					j$.each(values, function(key, value) {
-					     var option = j$(selector)
+					
+				}
+				var bindProjects = function(projects) {
+					j$('#alm_project').find('option').remove();
+					j$.each(projects, function(key, value) {
+					     var option = j$('#alm_project')
 					         .append(j$("<option></option>")
 					         .attr("value",value.oid)
 					         .text(value.name));
-					     if (defaultValue === value.oid){
-					     	j$(selector).val(defaultValue);
+					     if (userDefaults.projectOid === value.oid){
+					     	j$('#alm_project').val(userDefaults.projectOid);
 					     }
 					});
-					j$(selector).trigger('bound');
-				}
-				var bindProjects = function(projects) {
-					bindAlmDataToDdl('#alm_project', projects, userDefaults.projectOid);
+					j$('#alm_project').trigger('bound');
 				};
-				var bindWorkspaces = function(workspaces) {
-					bindAlmDataToDdl('#alm_workspace', workspaces, userDefaults.workspaceOid);
-				};
-				var bindArtifacts = function(artifacts) {
-					bindAlmDataToDdl('#alm_artifact_type', artifacts);
-				}
 
-				
-
-				j$('#alm_workspace').on('bound change', function() {
-					var workspaceOid = j$('#alm_workspace').val();
-					my.getAlmProjects(workspaceOid, bindProjects);
-					my.getAlmTypeDefinitions(workspaceOid, bindArtifacts);
+				alm.getAlmWorkspaceByName(sf.workspaceName, function(workspace) {
+					var workspaceOid = workspace.ObjectID;
+					alm.getAlmProjects(workspaceOid, bindProjects);
 				});
-				my.getAlmWorkspaces(bindWorkspaces);
-			});
+			}
+			alm.getUserDefaults(bindCreateForm);
 
-			j$('#btn_create').on('click', function(){
+			var createArtifact = function() {
+				// get defect mapping
+				var defectMap = sf.defectMap;
 
-			});
+				// get merge fields from case
+				var caseFieldsToQuery = [];
+				j$.each(defectMap, function(key, value) {
+					if (!value.literalValue	) {
+						caseFieldsToQuery.push(value.fldValue);
+					}
+				});
+				var caseObj = sf.fetchCaseValues(caseId,caseFieldsToQuery);
+
+				// create rally defect object
+				var rallyArtifact = {};
+				j$.each(defectMap, function(key, value) {
+					rallyArtifact[key] = value.literalValue || caseObj[value.fldValue];
+				});
+
+				// call wsapi
+				var projectOid = j$('#alm_project').val();
+				var typeDefOid = j$('#alm_artifact_type').val();
+				alm.createArtifact(projectOid, typeDefOid, rallyArtifact, function(response) {
+					j$('#btn_create').trigger('created', [response.Object]);
+				});
+			}
+			j$('#btn_create').on('click', createArtifact);
+
+
+			j$('#btn_create').on('created', function(event, artifact) {
+				// create link record
+				var linkRecord = new sforce.SObject('Case2RallyArtifact__c');
+				linkRecord.Case__c = caseId;
+				linkRecord.artifactRef__c = artifact._ref;
+
+				// var result = sforce.connection.create([linkRecord]);
+				// rebind linkedArtifacts
+			})
 
 			// show form
 			j$('#alm_project').on('bound', function() {

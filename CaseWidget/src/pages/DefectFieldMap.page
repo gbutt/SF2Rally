@@ -11,7 +11,7 @@
 		
 		// init form
 		j$(function(){
-			
+
 			var dfm = new rally.dfm();
 			var setupID = "{!Case2Rally_Setup__c.Id}";
 
@@ -21,7 +21,7 @@
 				rally.apiKey = '{!$Setup.Case2Rally__c.API_Key__c}';
 				sforce.connection.sessionId = '{!$Api.Session_ID}';
 				rally.init();
-				rally.getWorkspaceOid(rally.workspace);
+				rally.getWorkspaceOid();
 
 	    		// init rally field map
 	    		dfm.fm.getArtifactFieldMapById(setupID);
@@ -35,140 +35,157 @@
 				var caseFields = dfm.fm.getSFCaseFields().fields.sort(sortByLabel);
 				// current field mapping for defects
 				var defectFieldMap = dfm.fm.artifactFieldMap;
-				
+
 		    	// display form -- duh
 		    	displayForm(rallyFields, rallyCustomFields, caseFields, defectFieldMap);
 
 				// export
 				my.saveSettings = saveSettings;
 			}
-			
+
 			var sortByLabel = function (a, b) {
 				return ((a.label < b.label) ? -1 : ((a.label > b.label) ? 1 : 0))
 			};
 
-		    // displays
-		    var displaySFCaseFieldOpts = function (caseFields, selector, required) {
-		    	var contentStr = "";
-		    	var selected = "";
-		    	if (!required) {
-		    		contentStr = "<option value='None'></option>";
-		    	}
-		    	if ((selector != undefined) && (selector.fldValue == "Default")) {
-		    		selected = "selected";
-		    	}
-		    	contentStr += "<option value='Default'" + selected + ">&lt;Default Value&gt;</option>";
-		    	for (var i = 0; i < caseFields.length; i++) {
-		    		selected = "";
-		    		if ((selector != undefined) && (selector.fldValue == caseFields[i].name)) {
-		    			selected = "selected";
-		    		}
-		    		if (typeof(caseFields[i].referenceTo) == "undefined") {
-		    			contentStr += "<option " + selected + " value='" + caseFields[i].name + "'>" + caseFields[i].label + "</option>";
-		    		}
-		    	}
-		    	return(contentStr);
-		    };
+			var getRallyAttributeType = function(code) {
+				return dfm.fm.getRallyAttributeType(code);
+			};
 
-		    var getRallyAttributeType = function(code) {
-		    	return dfm.fm.getRallyAttributeType(code);
-		    };
+			var getRallyAttrAllowedValues = function(code, attrType) {
+				var attrIndex = dfm.fm.lookupAttributeIndex(code);
+				var attrAllowedValues = dfm.fm.rallySchema[attrIndex].AllowedValues;
+				var allowedValues = [];
+				if (Array.isArray(attrAllowedValues) && attrAllowedValues.length > 0) {
+					j$.each(attrAllowedValues, function(i, value) {
+						allowedValues.push(value.StringValue);
+					})
+				}
 
-		    var getRallyAttrAllowedValues = function(code, attrType) {
-		    	var attrIndex = dfm.fm.lookupAttributeIndex(code);
-		    	var attrAllowedValues = dfm.fm.rallySchema[attrIndex].AllowedValues;
-		    	var allowedValues = [];
-		    	if (Array.isArray(attrAllowedValues) && attrAllowedValues.length > 0) {
-		    		j$.each(attrAllowedValues, function(i, value) {
-		    			allowedValues.push(value.StringValue);
-		    		})
-		    	}
+				return allowedValues;
 
-		    	return allowedValues;
+				// return dfm.fm.getRallyAttrAllowedValues(code, attrType);
+			};
 
-		    	// return dfm.fm.getRallyAttrAllowedValues(code, attrType);
-		    };
+			var parseAllowedValuesText = function(attrType, allowedValues) {
+				if (allowedValues.length == 0 && attrType == 'String') {
+					return 'Text value shorter than 255 characters'
+				}
+				if (allowedValues.length > 0) {
+					return allowedValues.filter(function(v){return v.trim() != ''}).join(', ');
+				}
+				return '';
+			}
 
-		    var parseAllowedValuesText = function(attrType, allowedValues) {
-		    	if (allowedValues.length == 0 && attrType == 'String') {
-		    		return 'Text value shorter than 255 characters'
-		    	}
-		    	if (allowedValues.length > 0) {
-		    		return allowedValues.filter(function(v){return v.trim() != ''}).join(', ');
-		    	}
-		    	return '';
-		    }
+			var displayForm = function (rallyFields, rallyCustomFields, caseFields, defectFieldMap) {
+				var sfSelectOpts = "";
 
-		    var displayForm = function (rallyFields, rallyCustomFields, caseFields, defectFieldMap) {
-		    	var sfSelectOpts = "";
-		    	// var customDefectFieldMap = dfm.fm.rallyCustomAttrMap;
-		    	
-		    	// standard fields
-		    	var contentStr = '<table style="font-size: 100%" class="list"><tr class="headerRow">'+
-		    	'<th width="30%">Salesforce Field</th>'+
-		    	'<th width="30%">Default Value</th>'+
-		    	'<th width="10%">Rally Field</th>'+
-		    	'<th width="10%">Rally Type</th>'+
-		    	'<th width="20%">Allowed Values</th>'+
-		    	'</tr>';
+				var table = j$('<table></table>').addClass('list').css('font-size', '100%');
+				table.append( function() {
+					var tr = j$('<tr></tr>').addClass('headerRow');
+					tr.append( j$('<th></th>').attr('width', '30%').text('Salesforce Field') );
+					tr.append( j$('<th></th>').attr('width', '30%').text('Default Value') );
+					tr.append( j$('<th></th>').attr('width', '10%').text('Rally Field') );
+					tr.append( j$('<th></th>').attr('width', '10%').text('Rally Type') );
+					tr.append( j$('<th></th>').attr('width', '20%').text('Allowed Values') );
+					return tr;
+				});
 
-		    	var allFields = rallyFields.concat(rallyCustomFields);
-		    	for (var i = 0; i < allFields.length; i++) {
-		    		var currentField = allFields[i];
-		    		var selector = defectFieldMap[currentField.code];
-		    		if (selector == undefined) {
-		    			selector = {};
-		    		}
-		    		selector.literalValue = selector.literalValue || "";
-		    		var sfSelectOpts = displaySFCaseFieldOpts(caseFields, selector, currentField.required);
-		    		var attrType = getRallyAttributeType(currentField.code);
-		    		var allowedValuesList = getRallyAttrAllowedValues(currentField.code, attrType);
-		    		var allowedValuesText = parseAllowedValuesText(attrType, allowedValuesList);
-		    		contentStr += '<tr class="dataRow"><td class="dataCell" width="30%">';
-		    		// salesforce field select
-		    		contentStr += '<select name="' + currentField.code +'_fld">' + sfSelectOpts + '</select>';
-		    		contentStr += '</td><td class="dataCell" width="30%">';
-		    		// default value select
-		    		if (allowedValuesList.length > 0) {
-		    			contentStr += '<select name="' + currentField.code +'_literal">';
-		    			j$.each(allowedValuesList, function(i,value) {
-		    				var selected = '';
-		    				if (value == selector.literalValue) {
-		    					selected = 'selected'
-		    				}
-		    				contentStr += '<option value="' + value + '" ' + selected + ' >' + value + '</option>';
-		    			})
-		    			contentStr += '</select>';
-		    		} else {
-		    			contentStr += '<input name="' + currentField.code + '_literal' + '" type="text" value="' + selector.literalValue + '" maxsize="255">';
-		    		}
-		    		contentStr += '</td><td class="dataCell" width="10%">';
-		    		contentStr += currentField.label;
-		    		contentStr += '</td><td class="dataCell" width="10%">';
-		    		contentStr += attrType;contentStr += '</td><td class="dataCell" width="20%">';
-		    		contentStr += allowedValuesText;
-		    		contentStr += '</td></tr>';
-		    	}
+				var allFields = rallyFields.concat(rallyCustomFields);
+				for (var i = 0; i < allFields.length; i++) {
+					var currentField = allFields[i];
+					var selector = defectFieldMap[currentField.code];
+					if (selector == undefined) {
+						selector = {};
+					}
+					selector.literalValue = selector.literalValue || "";
+					var sfSelectOpts = displaySFCaseFieldOpts(caseFields, selector, currentField.required);
+					var attrType = getRallyAttributeType(currentField.code);
+					var allowedValuesList = getRallyAttrAllowedValues(currentField.code, attrType);
+					var allowedValuesText = parseAllowedValuesText(attrType, allowedValuesList);
 
-		    	contentStr += '<tr><td class="dataCell" colspan="5"><input type="button" class="btn" name="Save Settings" value="Save Settings" onClick="my.saveSettings(this);" /><div id="saveStatus"></div></table>';
-		    	document.getElementById("defectMapFormID").innerHTML = contentStr;
-		    };
+					table.append(function() {
+						var tr = j$('<tr></tr>').addClass('dataRow');
 
-		    // used by Save Settings button
-		    var saveSettings = function(element) {
-		    	try {
-		    		element.style.cursor='wait';
-		    		dfm.fm.saveMapping(setupID);
-		    		j$('#saveStatus').innerHTML = 'Saved Successfully.';
-		    	} catch (exception) {
-		    		console.log(exception);
-		    		j$('#saveStatus').innerHTML = 'Save Failed.';
-		    	} finally {
-		    		element.style.cursor='auto';
-		    	}
-		    };
+						// salesforce field select
+						tr.append(j$('<td></td>').addClass('dataCell').append(
+							j$('<select></select>').attr('name', currentField.code+'_fld').html(sfSelectOpts)
+							));
 
-		    init();
+						// default value select
+						tr.append(j$('<td></td>').addClass('dataCell').append(function() {
+							var inputField;
+							if (allowedValuesList.length > 0) {
+								inputField = j$('<select></select>').attr('name', currentField.code+'_literal');
+								j$.each(allowedValuesList, function(i,value) {
+									var option = j$('<option></option>').attr('value', value).text(value);
+									if (value == selector.literalValue) {
+										option.attr('selected', 'true');
+									}
+									inputField.append( option );
+								})
+							} else {
+								inputField = j$('<input></input>').attr('name', currentField.code+'_literal').attr('type', 'text').attr('value', selector.literalValue).attr('maxsize', '255');
+							}
+							return inputField;
+						}));
+
+						tr.append(j$('<td></td>').addClass('dataCell').text(currentField.label));
+						tr.append(j$('<td></td>').addClass('dataCell').text(attrType));
+						tr.append(j$('<td></td>').addClass('dataCell').text(allowedValuesText));
+
+						return tr;
+					});
+				}
+				table.append(
+					j$('<tr></tr>').append(
+						j$('<td></td>').addClass('dataCell').attr('colspan', '5').append(
+							j$('<input></input>').attr('type', 'button').attr('name', 'Save Settings').attr('value', 'Save Settings').addClass('btn').attr('onclick', 'my.saveSettings(this);')
+						).append(
+							j$('<div></div>').attr('id', 'saveStatus')
+						)
+				)); ////<tr><td class="dataCell" colspan="5"><input type="button" class="btn" name="Save Settings" value="Save Settings" onClick="my.saveSettings(this);" /><div id="saveStatus"></div></table>
+				j$('#defectMapFormID').append(table);
+			};
+
+			// displays
+			var displaySFCaseFieldOpts = function (caseFields, selector, required) {
+
+				var contentStr = "";
+				var selected = "";
+				if (!required) {
+					contentStr = "<option value='None'></option>";
+				}
+				if ((selector != undefined) && (selector.fldValue == "Default")) {
+					selected = "selected";
+				}
+				contentStr += "<option value='Default'" + selected + ">&lt;Default Value&gt;</option>";
+				for (var i = 0; i < caseFields.length; i++) {
+					selected = "";
+					if ((selector != undefined) && (selector.fldValue == caseFields[i].name)) {
+						selected = "selected";
+					}
+					if (typeof(caseFields[i].referenceTo) == "undefined") {
+						contentStr += "<option " + selected + " value='" + caseFields[i].name + "'>" + caseFields[i].label + "</option>";
+					}
+				}
+				return(contentStr);
+			};
+
+			// used by Save Settings button
+			var saveSettings = function(element) {
+				try {
+					element.style.cursor='wait';
+					dfm.fm.saveMapping(setupID);
+					j$('#saveStatus').html('Saved Successfully.');
+				} catch (exception) {
+					console.log(exception);
+					j$('#saveStatus').html('Save Failed.');
+				} finally {
+					element.style.cursor='auto';
+				}
+			};
+
+			init();
 		});
 
 
