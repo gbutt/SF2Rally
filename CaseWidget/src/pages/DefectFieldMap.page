@@ -2,157 +2,215 @@
 <html>
 <head>
 	<!-- (c) 2009 Rally Software Development Corp. All rights reserved. -->
-	<link href="/sCSS/15.0/Theme2/default/common.css" type="text/css" rel="stylesheet"/>
 	<title>Rally Setup Defect Fields</title>
 	<c:jquery />
-	<script type="text/javascript" src="/js/functions.js"></script>
 	<script src="/soap/ajax/15.0/connection.js" type="text/javascript"></script>
-	<script type="text/javascript"
-	src="https://www.rallydev.com/integrations/rsc/yui/2.6.0/build/yahoo/yahoo-min.js"></script>
-	<script type="text/javascript"
-	src="https://www.rallydev.com/integrations/rsc/yui/2.6.0/build/json/json-min.js"></script>
-	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/rallyObj.js')}"></apex:includeScript>
 	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/fieldMapper.js')}"></apex:includeScript>
 	<script type="text/javascript">
-		rally.apiKey = '{!$Setup.Case2Rally__c.API_Key__c}';
-		sforce.connection.sessionId = '{!$Api.Session_ID}';    
-		rally.sdf = {};
-		rally.sdf.setupID = "{!Case2Rally_Setup__c.Id}";
-		rally.sdf.defectFields = {};
+		var my = {};
+		
+		// init form
+		j$(function(){
+			
+			var dfm = new rally.dfm();
+			var setupID = "{!Case2Rally_Setup__c.Id}";
 
-		rally.sdf.enableLiteral = function (form, field) {
+			var init = function() {
 
-		};
+				// init rally client and workspace
+				rally.apiKey = '{!$Setup.Case2Rally__c.API_Key__c}';
+				sforce.connection.sessionId = '{!$Api.Session_ID}';
+				rally.init();
+				rally.getWorkspaceOid(rally.workspace);
 
-		rally.sdf.sortByLabel = function (a, b) {
-			return ((a.label < b.label) ? -1 : ((a.label > b.label) ? 1 : 0))
-		};
+	    		// init rally field map
+	    		dfm.fm.getArtifactFieldMapById(setupID);
+	    		dfm.fm.getArtifactTypeDef(rally.workspaceRef);
 
-		rally.sdf.sortByElementName = function (a, b) {
-			return((a.ElementName < b.ElementName) ? -1 : ((a.ElementName > b.ElementName) ? 1 : 0))
-		};
 
-    // displays
-    rally.sdf.displaySFCaseFieldOpts = function (caseDescription, selector, required) {
-    	var contentStr = "";
-    	var fields = caseDescription.fields.sort(rally.sdf.sortByLabel);
-    	var selected = "";
-    	if (!required) {
-    		contentStr = "<option value='None'>&lt;None&gt;</option>";
-    	}
-    	if ((selector != undefined) && (selector.fldValue == "Default")) {
-    		selected = "selected";
-    	}
-    	contentStr += "<option value='Default'" + selected + ">&lt;Default Value&gt;</option>";
-    	for (var i = 0; i < fields.length; i++) {
-    		selected = "";
-    		if ((selector != undefined) && (selector.fldValue == fields[i].name)) {
-    			selected = "selected";
-    		}
-    		if (typeof(fields[i].referenceTo) == "undefined") {
-    			contentStr += "<option " + selected + " value='" + fields[i].name + "'>" + fields[i].label + "</option>";
-    		}
-    	}
-    	return(contentStr);
-    };
+		    	// rally defect fields and custom fields
+		    	var rallyFields = dfm.fm.rallyFields;
+		    	var rallyCustomFields = dfm.fm.rallyCustomFields.sort(sortByLabel);
+				// fields from the case object in SF
+				var caseFields = dfm.fm.getSFCaseFields().fields.sort(sortByLabel);
+				// current field mapping for defects
+				var defectFieldMap = dfm.fm.artifactFieldMap;
+				
+		    	// display form -- duh
+		    	displayForm(rallyFields, rallyCustomFields, caseFields, defectFieldMap);
 
-    rally.sdf.displayForm = function (id, rallyFields, rallyCustomFields) {
-    	var sfSelectOpts = "";
-    	var contentStr = '<table style="font-size: 100%" class="list">';
-    	var defectFieldMap = rally.sdf.dfm.fm.artifactFieldMap;
-    	var customDefectFieldMap = rally.sdf.dfm.fm.rallyCustomAttrMap;
-    	for (var i = 0; i < rallyFields.length; i++) {
-    		var selector = defectFieldMap[rallyFields[i].code];
-    		if (selector == undefined) {
-    			selector = {};
-    			selector.literalValue = "";
-    		}
-    		var sfSelectOpts = rally.sdf.displaySFCaseFieldOpts(rally.sdf.caseSchema, selector, rallyFields[i].required);
-    		var attrType = rally.sdf.dfm.fm.getRallyAttributeType(rallyFields[i].code);
-    		var allowedValues = rally.sdf.dfm.fm.getRallyAttrAllowedValues(rallyFields[i].code, attrType);
-    		contentStr += '<tr class="dataRow"><td class="dataCell" width="30%"><select name="' + rallyFields[i].code +
-    		'_fld">' + sfSelectOpts + '</select></td><td class="dataCell" width="30%"><input name="' + rallyFields[i].code + '_literal' + '" type="text" value="' + selector.literalValue + '" maxsize="255"></td><td class="dataCell" width="10%">' +
-    		rallyFields[i].label + '</td><td class="dataCell" width="10%">' + attrType + '</td><td class="dataCell" width="20%">' + allowedValues + '</td></tr>';
-    	}
-    	contentStr += '<tr class="dataRow"><td class="dataCell" colspan="5" align="center" width="100%"><b>Rally Custom Fields</b></td></tr>';
-    	var custFields = rallyCustomFields.sort(rally.sdf.sortByLabel);
-    	for (var i = 0; i < custFields.length; i++) {
-    		var currentField = custFields[i];
-    		var selector = defectFieldMap[currentField.code];
-    		if (selector == undefined) {
-    			selector = {};
-    			selector.literalValue = "";
-    		}
-    		var sfSelectOpts = rally.sdf.displaySFCaseFieldOpts(rally.sdf.caseSchema, selector, 0);
-    		var attrType = rally.sdf.dfm.fm.getRallyAttributeType(currentField.code);
-    		var allowedValues = rally.sdf.dfm.fm.getRallyAttrAllowedValues(currentField.code, attrType);
-    		contentStr += '<tr class="dataRow"><td class="dataCell" width="30%"><select name="' + currentField.code +
-    		'_fld">' + sfSelectOpts + '</select></td><td class="dataCell" width="30%"><input name="' + currentField.code + '_literal' + '" type="text" value="' + selector.literalValue + '" maxsize="255"></td><td class="dataCell" width="10%">' +
-    		currentField.label + '</td><td class="dataCell" width="10%">' + attrType + '</td><td class="dataCell" width="20%">' + allowedValues + '</td></tr>';
-    	}
-    	contentStr += '<tr><td class="dataCell" colspan="5"><input type="button" class="btn" name="Save Settings" value="Save Settings" onClick="this.style.cursor=\'wait\';rally.sdf.dfm.fm.saveMapping(\'' + id + '\');this.style.cursor=\'auto\';self.close();"></table>';
-    	document.getElementById("defectMapFormID").innerHTML = contentStr;
-    };
+				// export
+				my.saveSettings = saveSettings;
+			}
+			
+			var sortByLabel = function (a, b) {
+				return ((a.label < b.label) ? -1 : ((a.label > b.label) ? 1 : 0))
+			};
 
-    rally.sdf.sectionHeaderContent = function () {
-    	var contentStr = '<table style="font-size: 100%" class="list">\n';
-    	contentStr += '<tr class="headerRow"><th width="30%">Salesforce Field</th><th width="30%">Default Value</th><th width="10%">Rally Field</th><th width="10%">Rally Type</th><th width="20%">Allowed Values</th></tr></table>\n';
-    	document.getElementById("headerArea").innerHTML = contentStr;
+		    // displays
+		    var displaySFCaseFieldOpts = function (caseFields, selector, required) {
+		    	var contentStr = "";
+		    	var selected = "";
+		    	if (!required) {
+		    		contentStr = "<option value='None'></option>";
+		    	}
+		    	if ((selector != undefined) && (selector.fldValue == "Default")) {
+		    		selected = "selected";
+		    	}
+		    	contentStr += "<option value='Default'" + selected + ">&lt;Default Value&gt;</option>";
+		    	for (var i = 0; i < caseFields.length; i++) {
+		    		selected = "";
+		    		if ((selector != undefined) && (selector.fldValue == caseFields[i].name)) {
+		    			selected = "selected";
+		    		}
+		    		if (typeof(caseFields[i].referenceTo) == "undefined") {
+		    			contentStr += "<option " + selected + " value='" + caseFields[i].name + "'>" + caseFields[i].label + "</option>";
+		    		}
+		    	}
+		    	return(contentStr);
+		    };
 
-    };
+		    var getRallyAttributeType = function(code) {
+		    	return dfm.fm.getRallyAttributeType(code);
+		    };
 
-    rally.sdf.init = function () {
-    	rally.init();
-    	rally.getWorkspaceOid(rally.workspace);
-    	rally.sdf.dfm = new rally.dfm();
-    	rally.sdf.caseSchema = rally.sdf.dfm.fm.getSFCaseFields();
-    	rally.sdf.dfm.fm.getArtifactFieldMapById(rally.sdf.setupID);
-    	rally.sdf.dfm.fm.getArtifactTypeDef(rally.workspaceRef);
-    	rally.sdf.sectionHeaderContent();
+		    var getRallyAttrAllowedValues = function(code, attrType) {
+		    	var attrIndex = dfm.fm.lookupAttributeIndex(code);
+		    	var attrAllowedValues = dfm.fm.rallySchema[attrIndex].AllowedValues;
+		    	var allowedValues = [];
+		    	if (Array.isArray(attrAllowedValues) && attrAllowedValues.length > 0) {
+		    		j$.each(attrAllowedValues, function(i, value) {
+		    			allowedValues.push(value.StringValue);
+		    		})
+		    	}
 
-    }
+		    	return allowedValues;
+
+		    	// return dfm.fm.getRallyAttrAllowedValues(code, attrType);
+		    };
+
+		    var parseAllowedValuesText = function(attrType, allowedValues) {
+		    	if (allowedValues.length == 0 && attrType == 'String') {
+		    		return 'Text value shorter than 255 characters'
+		    	}
+		    	if (allowedValues.length > 0) {
+		    		return allowedValues.filter(function(v){return v.trim() != ''}).join(', ');
+		    	}
+		    	return '';
+		    }
+
+		    var displayForm = function (rallyFields, rallyCustomFields, caseFields, defectFieldMap) {
+		    	var sfSelectOpts = "";
+		    	// var customDefectFieldMap = dfm.fm.rallyCustomAttrMap;
+		    	
+		    	// standard fields
+		    	var contentStr = '<table style="font-size: 100%" class="list"><tr class="headerRow">'+
+		    	'<th width="30%">Salesforce Field</th>'+
+		    	'<th width="30%">Default Value</th>'+
+		    	'<th width="10%">Rally Field</th>'+
+		    	'<th width="10%">Rally Type</th>'+
+		    	'<th width="20%">Allowed Values</th>'+
+		    	'</tr>';
+
+		    	var allFields = rallyFields.concat(rallyCustomFields);
+		    	for (var i = 0; i < allFields.length; i++) {
+		    		var currentField = allFields[i];
+		    		var selector = defectFieldMap[currentField.code];
+		    		if (selector == undefined) {
+		    			selector = {};
+		    		}
+		    		selector.literalValue = selector.literalValue || "";
+		    		var sfSelectOpts = displaySFCaseFieldOpts(caseFields, selector, currentField.required);
+		    		var attrType = getRallyAttributeType(currentField.code);
+		    		var allowedValuesList = getRallyAttrAllowedValues(currentField.code, attrType);
+		    		var allowedValuesText = parseAllowedValuesText(attrType, allowedValuesList);
+		    		contentStr += '<tr class="dataRow"><td class="dataCell" width="30%">';
+		    		// salesforce field select
+		    		contentStr += '<select name="' + currentField.code +'_fld">' + sfSelectOpts + '</select>';
+		    		contentStr += '</td><td class="dataCell" width="30%">';
+		    		// default value select
+		    		if (allowedValuesList.length > 0) {
+		    			contentStr += '<select name="' + currentField.code +'_literal">';
+		    			j$.each(allowedValuesList, function(i,value) {
+		    				var selected = '';
+		    				if (value == selector.literalValue) {
+		    					selected = 'selected'
+		    				}
+		    				contentStr += '<option value="' + value + '" ' + selected + ' >' + value + '</option>';
+		    			})
+		    			contentStr += '</select>';
+		    		} else {
+		    			contentStr += '<input name="' + currentField.code + '_literal' + '" type="text" value="' + selector.literalValue + '" maxsize="255">';
+		    		}
+		    		contentStr += '</td><td class="dataCell" width="10%">';
+		    		contentStr += currentField.label;
+		    		contentStr += '</td><td class="dataCell" width="10%">';
+		    		contentStr += attrType;contentStr += '</td><td class="dataCell" width="20%">';
+		    		contentStr += allowedValuesText;
+		    		contentStr += '</td></tr>';
+		    	}
+
+		    	contentStr += '<tr><td class="dataCell" colspan="5"><input type="button" class="btn" name="Save Settings" value="Save Settings" onClick="my.saveSettings(this);" /><div id="saveStatus"></div></table>';
+		    	document.getElementById("defectMapFormID").innerHTML = contentStr;
+		    };
+
+		    // used by Save Settings button
+		    var saveSettings = function(element) {
+		    	try {
+		    		element.style.cursor='wait';
+		    		dfm.fm.saveMapping(setupID);
+		    		j$('#saveStatus').innerHTML = 'Saved Successfully.';
+		    	} catch (exception) {
+		    		console.log(exception);
+		    		j$('#saveStatus').innerHTML = 'Save Failed.';
+		    	} finally {
+		    		element.style.cursor='auto';
+		    	}
+		    };
+
+		    init();
+		});
+
+
 
 </script>
 </head>
-<body
-onLoad="rally.sdf.init();rally.sdf.displayForm(rally.sdf.setupID,rally.sdf.dfm.fm.rallyFields,rally.sdf.dfm.fm.rallyCustomFields);"
-class="bWizardList">
-<div class="bRelatedList pbSubsection">
-	<div class="bPageBlock secondaryPalette">
-		<div class="pbHeader">
-			<table class="list" border="0" cellspacing="0" cellpadding="0"
-			style="background-color: transparent; border-color: #5B77CC; font-size: 100%">
-			<tr>
-				<td class="dataCell" colspan="10">This screen allows Salesforce administrators to specify some field
-					values of Rally defects created from support cases.<br /><br />
-					Review the default mapping below, and optionally update the values in the Salesforce Field
-					column.<br /><br />
-					<ul>
-						<li>Select &lt;None&gt; when you do not want the respective Rally defect field to be set
-							from Salesforce
-						</li>
-						<li>Select &lt;Default Value&gt; to have all defects created from support cases use the
-							value specified in the Default Value column
-						</li>
-						<li>Select a Salesforce case field to populate the respective Rally defect field</li>
-					</ul>
-					<b>IMPORTANT:</b> When selecting Salesforce case fields of type Picklist,
-					ensure that the Picklist values exactly match the Rally values in the
-					Allowed Values column. For the Rally Owner field, the Default Value must
-					be expressed as a Rally username (ex: bill@abc.com).
-				</td>
-			</tr>
-			<tr>
-				<td colspan="10">&nbsp;</td>
-			</tr>
-		</table>
-		<div id="headerArea"></div>
+<body class="bWizardList">
+	<div class="bRelatedList pbSubsection">
+		<div class="bPageBlock secondaryPalette">
+			<div class="pbHeader">
+				<table class="list" border="0" cellspacing="0" cellpadding="0"
+				style="background-color: transparent; border-color: #5B77CC; font-size: 100%">
+				<tr>
+					<td class="dataCell" colspan="10">This screen allows Salesforce administrators to specify some field
+						values of Rally defects created from support cases.<br /><br />
+						Review the default mapping below, and optionally update the values in the Salesforce Field
+						column.<br /><br />
+						<ul>
+							<li>Select &lt;None&gt; when you do not want the respective Rally defect field to be set
+								from Salesforce
+							</li>
+							<li>Select &lt;Default Value&gt; to have all defects created from support cases use the
+								value specified in the Default Value column
+							</li>
+							<li>Select a Salesforce case field to populate the respective Rally defect field</li>
+						</ul>
+						<b>IMPORTANT:</b> When selecting Salesforce case fields of type Picklist,
+						ensure that the Picklist values exactly match the Rally values in the
+						Allowed Values column. For the Rally Owner field, the Default Value must
+						be expressed as a Rally username (ex: bill@abc.com).
+					</td>
+				</tr>
+				<tr>
+					<td colspan="10">&nbsp;</td>
+				</tr>
+			</table>
+		</div>
+		<div class="pbBody">
+			<form name="defectMapForm" id="defectMapFormID"></form>
+		</div>
+		<div class="pbFooter"></div>
 	</div>
-	<div class="pbBody">
-		<form name="defectMapForm" id="defectMapFormID"></form>
-	</div>
-	<div class="pbFooter"></div>
-</div>
 </div>
 </body>
 </html>
