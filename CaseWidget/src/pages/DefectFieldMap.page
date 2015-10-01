@@ -5,171 +5,151 @@
 	<title>Rally Setup Defect Fields</title>
 	<c:jquery />
 	<script src="/soap/ajax/15.0/connection.js" type="text/javascript"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/2.1.3/mustache.js"></script>
 	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/fieldMapper.js')}"></apex:includeScript>
 	<script type="text/javascript">
 		var my = {};
 		
-		// init form
 		j$(function(){
-
+			rally.apiKey = '{!$Setup.Case2Rally__c.API_Key__c}';
+			sforce.connection.sessionId = '{!$Api.Session_ID}';
 			var dfm = new rally.dfm();
 			var setupID = "{!Case2Rally_Setup__c.Id}";
+			var workspaceName = '{!Case2Rally_Setup__c.Name}';
+			var rallySchema;
 
 			var init = function() {
-
-				// init rally client and workspace
-				rally.apiKey = '{!$Setup.Case2Rally__c.API_Key__c}';
-				sforce.connection.sessionId = '{!$Api.Session_ID}';
-				rally.init();
-				rally.getWorkspaceOid();
-
-	    		// init rally field map
-	    		dfm.fm.getArtifactFieldMapById(setupID);
-	    		dfm.fm.getArtifactTypeDef(rally.workspaceRef);
-
-
-		    	// rally defect fields and custom fields
-		    	var rallyFields = dfm.fm.rallyFields;
-		    	var rallyCustomFields = dfm.fm.rallyCustomFields.sort(sortByLabel);
-				// fields from the case object in SF
-				var caseFields = dfm.fm.getSFCaseFields().fields.sort(sortByLabel);
 				// current field mapping for defects
-				var defectFieldMap = dfm.fm.artifactFieldMap;
+				var defectFieldMap = getDefectFieldMap();
 
-		    	// display form -- duh
-		    	displayForm(rallyFields, rallyCustomFields, caseFields, defectFieldMap);
+				// fields from the case object in SF
+				var caseFields = sforce.connection.describeSObject("Case").fields
+					.filter(function(element){return !element.referenceTo;})
+					.sort(sortByKey('label'));
 
+				// get rally schema
+				rally.init();
+				rally.getWorkspaceOid(workspaceName);
+				dfm.fm.getArtifactTypeDef(rally.workspaceRef);
+				rallySchema = schemaArrayToMap(dfm.fm.rallySchema);
+				
+		    	displayForm(rallySchema, caseFields, defectFieldMap);
 				// export
 				my.saveSettings = saveSettings;
+				my.toggleInputEnabled = toggleInputEnabled;
 			}
 
-			var sortByLabel = function (a, b) {
-				return ((a.label < b.label) ? -1 : ((a.label > b.label) ? 1 : 0))
-			};
-
-			var getRallyAttributeType = function(code) {
-				return dfm.fm.getRallyAttributeType(code);
-			};
-
-			var getRallyAttrAllowedValues = function(code, attrType) {
-				var attrIndex = dfm.fm.lookupAttributeIndex(code);
-				var attrAllowedValues = dfm.fm.rallySchema[attrIndex].AllowedValues;
-				var allowedValues = [];
-				if (Array.isArray(attrAllowedValues) && attrAllowedValues.length > 0) {
-					j$.each(attrAllowedValues, function(i, value) {
-						allowedValues.push(value.StringValue);
-					})
+			var getDefectFieldMap = function() {
+				try {
+					return JSON.parse('{!Case2Rally_Setup__c.Defect_Field_Map__c}');
+				} catch (e) {  /* bad JSON */ 
+					return {};
 				}
+			} 
 
-				return allowedValues;
-
-				// return dfm.fm.getRallyAttrAllowedValues(code, attrType);
-			};
-
-			var parseAllowedValuesText = function(attrType, allowedValues) {
-				if (allowedValues.length == 0 && attrType == 'String') {
-					return 'Text value shorter than 255 characters'
-				}
-				if (allowedValues.length > 0) {
-					return allowedValues.filter(function(v){return v.trim() != ''}).join(', ');
-				}
-				return '';
-			}
-
-			var displayForm = function (rallyFields, rallyCustomFields, caseFields, defectFieldMap) {
-				var sfSelectOpts = "";
-
-				var table = j$('<table></table>').addClass('list').css('font-size', '100%');
-				table.append( function() {
-					var tr = j$('<tr></tr>').addClass('headerRow');
-					tr.append( j$('<th></th>').attr('width', '30%').text('Salesforce Field') );
-					tr.append( j$('<th></th>').attr('width', '30%').text('Default Value') );
-					tr.append( j$('<th></th>').attr('width', '10%').text('Rally Field') );
-					tr.append( j$('<th></th>').attr('width', '10%').text('Rally Type') );
-					tr.append( j$('<th></th>').attr('width', '20%').text('Allowed Values') );
-					return tr;
+			var schemaArrayToMap = function(rallySchema){
+				var map = {}, typeBlackList=['COLLECTION', 'OBJECT'];
+				var attributeWhitelist = [
+					"FoundInBuild",
+					"Severity",
+					"Priority",
+					"Environment",
+					"Description",
+					"Name",
+					"Package",
+					"Owner",
+					"Release"
+				];
+				j$.each(rallySchema, function(key, val){
+					if (!val.ReadOnly && typeBlackList.indexOf(val.AttributeType) === -1 && (val.Custom || attributeWhitelist.indexOf(val.ElementName) > -1)){
+						map[val.ElementName] = val;	
+					}
 				});
+				return map;
+			}
 
-				var allFields = rallyFields.concat(rallyCustomFields);
-				for (var i = 0; i < allFields.length; i++) {
-					var currentField = allFields[i];
-					var selector = defectFieldMap[currentField.code];
-					if (selector == undefined) {
-						selector = {};
-					}
-					selector.literalValue = selector.literalValue || "";
-					var sfSelectOpts = displaySFCaseFieldOpts(caseFields, selector, currentField.required);
-					var attrType = getRallyAttributeType(currentField.code);
-					var allowedValuesList = getRallyAttrAllowedValues(currentField.code, attrType);
-					var allowedValuesText = parseAllowedValuesText(attrType, allowedValuesList);
-
-					table.append(function() {
-						var tr = j$('<tr></tr>').addClass('dataRow');
-
-						// salesforce field select
-						tr.append(j$('<td></td>').addClass('dataCell').append(
-							j$('<select></select>').attr('name', currentField.code+'_fld').html(sfSelectOpts)
-							));
-
-						// default value select
-						tr.append(j$('<td></td>').addClass('dataCell').append(function() {
-							var inputField;
-							if (allowedValuesList.length > 0) {
-								inputField = j$('<select></select>').attr('name', currentField.code+'_literal');
-								j$.each(allowedValuesList, function(i,value) {
-									var option = j$('<option></option>').attr('value', value).text(value);
-									if (value == selector.literalValue) {
-										option.attr('selected', 'true');
-									}
-									inputField.append( option );
-								})
-							} else {
-								inputField = j$('<input></input>').attr('name', currentField.code+'_literal').attr('type', 'text').attr('value', selector.literalValue).attr('maxsize', '255');
-							}
-							return inputField;
-						}));
-
-						tr.append(j$('<td></td>').addClass('dataCell').text(currentField.label));
-						tr.append(j$('<td></td>').addClass('dataCell').text(attrType));
-						tr.append(j$('<td></td>').addClass('dataCell').text(allowedValuesText));
-
-						return tr;
-					});
-				}
-				table.append(
-					j$('<tr></tr>').append(
-						j$('<td></td>').addClass('dataCell').attr('colspan', '5').append(
-							j$('<input></input>').attr('type', 'button').attr('name', 'Save Settings').attr('value', 'Save Settings').addClass('btn').attr('onclick', 'my.saveSettings(this);')
-						).append(
-							j$('<div></div>').attr('id', 'saveStatus')
-						)
-				)); ////<tr><td class="dataCell" colspan="5"><input type="button" class="btn" name="Save Settings" value="Save Settings" onClick="my.saveSettings(this);" /><div id="saveStatus"></div></table>
-				j$('#defectMapFormID').append(table);
+			var sortByKey = function (key) {
+				return function(a, b) {
+					return (a[key] < b[key]) ? -1 : ((a[key] > b[key]) ? 1 : 0);
+				};
 			};
 
-			// displays
-			var displaySFCaseFieldOpts = function (caseFields, selector, required) {
+			var prettyLabel = function(attrType){
+				return attrType
+					.replace('_',' ')
+					.toLowerCase()
+					.replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); })
+			}
 
-				var contentStr = "";
-				var selected = "";
-				if (!required) {
-					contentStr = "<option value='None'></option>";
-				}
-				if ((selector != undefined) && (selector.fldValue == "Default")) {
-					selected = "selected";
-				}
-				contentStr += "<option value='Default'" + selected + ">&lt;Default Value&gt;</option>";
-				for (var i = 0; i < caseFields.length; i++) {
-					selected = "";
-					if ((selector != undefined) && (selector.fldValue == caseFields[i].name)) {
-						selected = "selected";
+			var getOrderedFields = function(rallySchema){
+				var standardFields = [],
+					customFields = [];
+				j$.each(rallySchema, function(key, val){
+					if (val.Custom){
+						customFields.push(val);
+					} else {
+						standardFields.push(val);
 					}
-					if (typeof(caseFields[i].referenceTo) == "undefined") {
-						contentStr += "<option " + selected + " value='" + caseFields[i].name + "'>" + caseFields[i].label + "</option>";
+				});
+				return standardFields.sort(sortByKey('Name')).concat(customFields.sort(sortByKey('Name')));
+			}
+
+			var renderView = function(viewSelector, model){
+				var template = j$(viewSelector).html();
+				return Mustache.render(template, model);
+			}
+
+			var displayForm = function(rallySchema, caseFields, sfToRallyFieldMap) {
+				var model = {
+					rows:[]
+				};
+				var allRallyFields = getOrderedFields(rallySchema);
+				j$.each(allRallyFields, function(i, rallyField){
+					var rallyFieldCode = rallyField.ElementName;
+					var allowedValues = (Array.isArray(rallyField.AllowedValues) && rallyField.AllowedValues.length > 0) ? rallyField.AllowedValues : [];
+					var rallyFieldType = prettyLabel(rallyField.AttributeType);
+					var fieldMap = sfToRallyFieldMap[rallyFieldCode] || {fldValue:'',literalValue:''};
+					var caseFieldOptions = [];
+					if (!rallyField.Required){
+						caseFieldOptions.push({name: 'None', label: '' });	
 					}
-				}
-				return(contentStr);
-			};
+					caseFieldOptions.push({name: 'Default', label: '<Default Value>' });
+					caseFieldOptions = caseFieldOptions.concat(caseFields);
+					var row = {
+						rallyFieldCode: rallyFieldCode,
+						caseField:{
+							options: caseFieldOptions
+						}, 
+						defaultField:{
+							literalValue: fieldMap.literalValue,
+							allowedValues: allowedValues
+						},
+						rallyFieldName: rallyField.Name,
+						rallyFieldType: rallyFieldType,
+						caseFieldSelected: function() {
+							return fieldMap.fldValue === this.name;
+						},
+						defaultFieldSelected: function() {
+							return fieldMap.literalValue === this.StringValue;
+						},
+						defaultFieldSelect: function() {
+							return allowedValues.length > 0;
+						},
+						defaultFieldInput: function() {
+							return allowedValues.length == 0;
+						},
+						defaultFieldDisabled: function() {
+							return fieldMap.fldValue !== 'Default';
+						}
+					}
+					model.rows.push(row);
+				});
+				
+				j$('#defectMapFormID').html(renderView('#rallyView', model));
+				j$('#saveSettings').on('click', function(){
+					my.saveSettings(this);
+				});
+			}
 
 			// used by Save Settings button
 			var saveSettings = function(element) {
@@ -185,11 +165,85 @@
 				}
 			};
 
+			var toggleInputEnabled = function(fldValue, inputName) {
+				var input = j$('[name='+inputName+']');
+				if (fldValue !== 'Default') {
+					input.attr('disabled', '');
+				} else {
+					input.removeAttr('disabled');
+				}
+			}
+
+			var saveMapping = function () {
+		      var mapToSave = {};
+		      var fields = rallySchema;
+		      j$.each(fields, function(i, field){
+		        var literalValue = "";
+		        var code = field.ElementName;
+		        var row = {}
+		        row.fldValue = j$('[name="' + code + '_fld' + '"]').val();
+		        if (row.fldValue == "Default") {
+		          row.literalValue = j$('[name="' + code + '_literal' + '"]').val();
+		        }
+		        if (row.fldValue !== 'None'){
+		          mapToSave[code] = row;  
+		        }
+		      });
+
+		      var _tmpobj = new sforce.SObject('Case2Rally_Setup__c');
+		      _tmpobj.Id = caseId;
+		      _tmpobj[this.SFQryField] = JSON.stringify(mapToSave);
+
+		      sforce.connection.update([_tmpobj]);
+		    };
+
 			init();
 		});
 
 
 
+</script>
+
+<script id="rallyView" type="x-tmpl-mustache">
+	<table class="list" style="font-size:100%;">
+		<tr class="headerRow">
+			<th>Salesforce Field</th>
+			<th>Default Value</th>
+			<th>Rally Field</th>
+			<th>Rally Type</th>
+		</tr>
+		{{#rows}}
+		<tr class="dataRow">
+			<td class="dataCell">
+				<select name="{{rallyFieldCode}}_fld" onchange="my.toggleInputEnabled(this.value, '{{rallyFieldCode}}_literal');">
+				{{#caseField.options}}
+					<option {{#caseFieldSelected}}selected{{/caseFieldSelected}} value="{{name}}">{{label}}</option>
+				{{/caseField.options}}
+				</select>
+			</td>
+			<td class="dataCell">
+				{{#defaultFieldSelect}}
+					<select name="{{rallyFieldCode}}_literal" {{#defaultFieldDisabled}}disabled{{/defaultFieldDisabled}}>
+					{{#defaultField.allowedValues}}
+						<option {{#defaultFieldSelected}}selected{{/defaultFieldSelected}} value="{{StringValue}}">{{StringValue}}</option>
+					{{/defaultField.allowedValues}}
+					</select>
+				{{/defaultFieldSelect}}
+				{{#defaultFieldInput}}
+					<input name="{{rallyFieldCode}}_literal" value="{{defaultField.literalValue}}" {{#defaultFieldDisabled}}disabled{{/defaultFieldDisabled}} />
+				{{/defaultFieldInput}}
+			</td>
+			<td class="dataCell">
+				{{rallyFieldName}}
+			</td>
+			<td class="dataCell">
+				{{rallyFieldType}}
+			</td>
+		</tr>
+		{{/rows}}
+	</table>
+	<input id="saveSettings" type="button" class="btn" name="Save Settings" value="Save Settings" />
+	<div id="saveStatus" />
 </script>
 </head>
 <body class="bWizardList">

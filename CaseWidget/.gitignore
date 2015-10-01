@@ -7,7 +7,7 @@
 
 #MavensMate nature exclusions
 config/*
-*/**/mm-*.log
+*.log
 
 #OPTIONAL Apex scripts exclusion
 # - Rule 1 excludes the contents of the apex-scripts folder

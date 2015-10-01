@@ -5,26 +5,21 @@
 		}
 	</style>
 	
-	<div class="linkedArtifacts"></div>
+	<div id="linkedArtifacts"></div>
 
 	<div class="casetorally">
 		<label for="alm_project">Project: </label>
 		<select id="alm_project"></select>
 		<br />
 
-		<label for="alm_artifact_type">Artifact Type: </label>
-		<select id="alm_artifact_type">
-			<option value='defect'>Defect</option>
-			<option value='hierarchicalrequirement'>User Story</option>
-		</select>
-		<br />
-
-		<input id="btn_create" type="button" value="Create"></input>
+		<input id="btn_create_defect" type="button" value="Create Defect"></input>
+		<input id="btn_create_userstory" type="button" value="Create User Story"></input>
 	</div>
 
 
 	<c:jquery />
 	<script src="/soap/ajax/34.0/connection.js" type="text/javascript"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/mustache.js/2.1.3/mustache.js"></script>
 	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/almClient.js')}"></apex:includeScript>
 	<apex:includeScript value="{!URLFOR($Resource.Case2Rally, '/js/sfdcClient.js')}"></apex:includeScript>
 
@@ -38,20 +33,33 @@
 		}
 		var alm = almClient(config);
 
-		
-
 		// we do the actual work here
 		j$(function(){
-			j$('.linkedArtifacts').hide();
 			j$('.casetorally').hide();
 			// get case id
 			var caseId = '{!Case.id}';
+			var workspaceOid;
+
+			var render = function(){
+				var records = sf.getLinkRecords(caseId);
+				var oids = [];
+				j$.each(records, function(key, val) {
+					oids.push(alm.parseOidFromUrl(val.ArtifactRef__c));
+				});
+
+				alm.fetchArtifacts(oids, workspaceOid, function(data){
+					console.log(data);
+					var template = j$('#rallyView').html();
+					data.hasDefects = function(){return !!this.rallyDefects;};
+					data.hasStories = function(){return !!this.rallyStories;};
+					var html = Mustache.render(template, data);
+					j$('#linkedArtifacts').html(html);
+				});
+				
+			}
 
 			// load user defaults - then load projects
 			var bindCreateForm = function(userDefaults) {
-				var bindAlmDataToDdl = function(selector, values, defaultValue) {
-					
-				}
 				var bindProjects = function(projects) {
 					j$('#alm_project').find('option').remove();
 					j$.each(projects, function(key, value) {
@@ -66,14 +74,11 @@
 					j$('#alm_project').trigger('bound');
 				};
 
-				alm.getAlmWorkspaceByName(sf.workspaceName, function(workspace) {
-					var workspaceOid = workspace.ObjectID;
-					alm.getAlmProjects(workspaceOid, bindProjects);
-				});
+				alm.getAlmProjects(workspaceOid, bindProjects);
+				
 			}
-			alm.getUserDefaults(bindCreateForm);
 
-			var createArtifact = function() {
+			var createArtifact = function(typeName) {
 				// get defect mapping
 				var defectMap = sf.defectMap;
 
@@ -94,29 +99,73 @@
 
 				// call wsapi
 				var projectOid = j$('#alm_project').val();
-				var typeDefOid = j$('#alm_artifact_type').val();
-				alm.createArtifact(projectOid, typeDefOid, rallyArtifact, function(response) {
-					j$('#btn_create').trigger('created', [response.Object]);
+				// var typeName = j$('#alm_artifact_type').val();
+				alm.createArtifact(projectOid, typeName, rallyArtifact, function(response) {
+					sf.createLinkRecord({Case__c : caseId, artifactRef__c: response.CreateResult.Object._ref});
+					// rebind linkedArtifacts
 				});
 			}
-			j$('#btn_create').on('click', createArtifact);
-
-
-			j$('#btn_create').on('created', function(event, artifact) {
-				// create link record
-				var linkRecord = new sforce.SObject('Case2RallyArtifact__c');
-				linkRecord.Case__c = caseId;
-				linkRecord.artifactRef__c = artifact._ref;
-
-				// var result = sforce.connection.create([linkRecord]);
-				// rebind linkedArtifacts
-			})
+			j$('#btn_create_defect').on('click', function(){createArtifact('defect')});
+			j$('#btn_create_userstory').on('click', function(){createArtifact('hierarchicalrequirement')});
 
 			// show form
 			j$('#alm_project').on('bound', function() {
 				j$('.casetorally').show();
 			});
+
+			alm.getAlmWorkspaceByName(sf.workspaceName, function(workspace) {
+				workspaceOid = workspace.ObjectID;
+				alm.getUserDefaults(bindCreateForm);
+				render();
+			});
 		});
+	</script>
+
+	<script id="rallyView" type="x-tmpl-mustache">
+		{{#hasStories}}
+			<h2>Rally Stories:</h2>
+			<table>
+				<tr>
+					<th>Name</th>
+					<th>Owner</th>
+					<th>Schedule State</th>
+					<th>Discussion</th>
+					<th>Attachments</th>
+				</tr>
+			{{#rallyStories}}
+				<tr>
+					<td><a href="{{_ref}}">{{Name}}</a></td>
+					<td>{{Owner.DisplayName}}</td>
+					<td>{{ScheduleState}}</td>
+					<td>{{Discussion.Count}}</td>
+					<td>{{Attachments.Count}}</td>
+				</tr>
+			{{/rallyStories}}
+			</table>
+		{{/hasStories}}
+		{{#hasDefects}}
+			<h2>Rally Defects:</h2>
+			<table>
+				<tr>
+					<th>Name</th>
+					<th>Owner</th>
+					<th>Schedule State</th>
+					<th>State</th>
+					<th>Discussion</th>
+					<th>Attachments</th>
+				</tr>
+			{{#rallyDefects}}
+				<tr>
+					<td><a href="{{_ref}}">{{Name}}</a></td>
+					<td>{{Owner.DisplayName}}</td>
+					<td>{{ScheduleState}}</td>
+					<td>{{State}}</td>
+					<td>{{Discussion.Count}}</td>
+					<td>{{Attachments.Count}}</td>
+				</tr>
+			{{/rallyDefects}}
+			</table>
+		{{/hasDefects}}
 	</script>
 
 

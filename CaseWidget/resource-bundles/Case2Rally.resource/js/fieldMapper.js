@@ -173,7 +173,7 @@ rally.injectContent = function (injectTag, content) {
 };
 
 rally.workspaceRef = "";
-rally.getWorkspaceOid = function () {
+rally.getWorkspaceOid = function (workspaceName) {
   rally.agentHeader("Find Workspace");
 
   var onSuccess = function(data) {
@@ -184,7 +184,7 @@ rally.getWorkspaceOid = function () {
   var onFailure = function(data) {
     console.log(data);
   };
-  rally.almGet(rally.webserviceUrl + '/workspace?workspace=null&query=(Name = "'+rally.workspace+'")&fetch=ObjectID,SchemaVersion', onSuccess, onFailure, true);
+  rally.almGet(rally.webserviceUrl + '/workspace?workspace=null&query=(Name = "'+workspaceName+'")&fetch=ObjectID,SchemaVersion', onSuccess, onFailure, true);
 };
 
 // rally.getWorkspaceOid.checkResponseErrors = function (jsResponse) {

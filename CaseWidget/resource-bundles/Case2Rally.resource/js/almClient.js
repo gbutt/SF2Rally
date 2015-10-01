@@ -125,7 +125,34 @@ var almClient = function(config) {
 		artifactBody[typeDef] = artifact;
 		almPost(url, artifactBody, callback);
 	}
+
+	var buildExpression = function(oids){
+		var expression = "";
+		j$.each(oids, function(key, val){
+			var newExp = '(ObjectID = ' + val + ')';
+			if (key > 0){
+				newExp = '(' + expression + ' OR ' + newExp + ')';
+			}
+			expression = newExp;
+		});
+		return expression;
+	}
 	
+	var fetchArtifacts = function(oidArray, workspaceOid, success){
+		almGet('artifact?types=Defect,HierarchicalRequirement&fetch=Name,Owner,DisplayName,Project,State,ScheduleState,Discussion,Attachments,ObjectID&workspace=/workspace/'+ workspaceOid + '&pagesize=200&query=' + buildExpression(oidArray), function (data){
+			var result = {};
+			j$.each(data.QueryResult.Results, function(key, value){
+				if (value._type === 'Defect'){
+					result.rallyDefects = result.rallyDefects || [];
+					result.rallyDefects.push(value);
+				} else {
+					result.rallyStories = result.rallyStories || [];
+					result.rallyStories.push(value);
+				}
+			});
+			success(result);
+		});
+	}
 
 	return {
 		getAlmWorkspaces : getAlmWorkspaces
@@ -133,6 +160,8 @@ var almClient = function(config) {
 		,getAlmProjects : getAlmProjects
 		,getUserDefaults : getUserDefaults
 		,createArtifact : createArtifact
+		,fetchArtifacts : fetchArtifacts
+		,parseOidFromUrl : parseOidFromUrl
 	};
 
 };

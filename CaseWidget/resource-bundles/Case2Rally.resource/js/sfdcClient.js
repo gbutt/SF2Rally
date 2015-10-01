@@ -25,10 +25,26 @@ var sfdcClient = function(config) {
 		return records[0];
 	}
 
+	var createLinkRecord = function(props){
+		var linkRecord = new sforce.SObject('Case2RallyArtifact__c');
+		j$.each(props, function(key, val){
+			linkRecord[key] = val;
+		});
+		
+		return sforce.connection.create([linkRecord]);
+	}
+
+	var getLinkRecords = function(caseId){
+		var soql = "SELECT ArtifactRef__c FROM Case2RallyArtifact__c WHERE Case__c = '" + caseId + "'"; 
+		return sforce.connection.query(soql).getArray("records");
+	}
+
 	return {
 		defectMap: setupObj.defectMap,
 		rallyUrl: setupObj.rallyUrl,
 		workspaceName : setupObj.workspaceName,
-		fetchCaseValues: fetchCaseValues
+		fetchCaseValues: fetchCaseValues,
+		createLinkRecord : createLinkRecord,
+		getLinkRecords : getLinkRecords
 	}
 }
