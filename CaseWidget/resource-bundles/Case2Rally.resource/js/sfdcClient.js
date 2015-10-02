@@ -1,19 +1,27 @@
 var sfdcClient = function(config) {
 
 	sforce.connection.sessionId = config.sessionId;
-	
-	var soql = 'SELECT Name, rallyUrl__c, Defect_Field_Map__c FROM Case2Rally_Setup__c LIMIT 1'
-	var records = sforce.connection.query(soql).getArray("records");
-	if (records.length !== 1){
-		throw "Run setup first";
-	}
 
-	
-	var setupObj = {
-		defectMap: JSON.parse(records[0].Defect_Field_Map__c),
-		rallyUrl: records[0].rallyUrl__c,
-		workspaceName : records[0].Name
+	var fetchSetupRecord = function() {
+		var soql = 'SELECT Name, rallyUrl__c, Defect_Field_Map__c, Story_Field_Map__c, apiKey__c FROM Case2Rally_Setup__c LIMIT 1'
+		var setupRecords = sforce.connection.query(soql).getArray("records");
+		if (setupRecords.length !== 1){
+			throw "Run setup first";
+		}
+
+		
+		var setupObj = {
+			DefectMap: JSON.parse(setupRecords[0].Defect_Field_Map__c || '{}'),
+			HierarchicalRequirementMap: JSON.parse(setupRecords[0].Story_Field_Map__c || '{}'),
+			rallyUrl: setupRecords[0].rallyUrl__c,
+			workspaceName : setupRecords[0].Name,
+			apiKey : setupRecords[0].apiKey__c
+		}
+
+		return setupObj;
 	}
+	
+	
 
 	var fetchCaseValues = function(caseId, caseFields) {
 		var soql = 'SELECT ' + caseFields.join(', ') + " FROM Case WHERE Id = '" + caseId + "'";
@@ -35,16 +43,22 @@ var sfdcClient = function(config) {
 	}
 
 	var getLinkRecords = function(caseId){
-		var soql = "SELECT ArtifactRef__c FROM Case2RallyArtifact__c WHERE Case__c = '" + caseId + "'"; 
+		var soql = "SELECT Id, ArtifactRef__c FROM Case2RallyArtifact__c WHERE Case__c = '" + caseId + "'"; 
 		return sforce.connection.query(soql).getArray("records");
 	}
 
+	var deleteLinkRecord = function(linkId){
+		return sforce.connection.deleteIds([linkId]);
+	}
+
 	return {
-		defectMap: setupObj.defectMap,
-		rallyUrl: setupObj.rallyUrl,
-		workspaceName : setupObj.workspaceName,
+		// defectMap: setupObj.defectMap,
+		// rallyUrl: setupObj.rallyUrl,
+		// workspaceName : setupObj.workspaceName,
+		fetchSetupRecord : fetchSetupRecord,
 		fetchCaseValues: fetchCaseValues,
 		createLinkRecord : createLinkRecord,
-		getLinkRecords : getLinkRecords
+		getLinkRecords : getLinkRecords,
+		deleteLinkRecord: deleteLinkRecord
 	}
 }

@@ -59,7 +59,7 @@ var almClient = function(config) {
 
 	// load all workspaces
 	// cache results in workspaceCache
-	var getAlmWorkspaces = function(callback) {
+	var getAlmWorkspaces = function(success) {
 		var url = 'workspace?workspace=null&order=Name&fetch=ObjectID';
 		almGet(url,function(data) {
 			var results = data.QueryResult.Results, 
@@ -69,19 +69,19 @@ var almClient = function(config) {
 				var oid = v.ObjectID;
 				workspaceCache.push({'name':name, 'oid':oid})
 			})
-			callback(workspaceCache);
+			success(workspaceCache);
 		});
 	}
 
-	var getAlmWorkspaceByName = function(workspaceName, callback) {
-		var url = 'workspace?workspace=null&query=(Name = "'+workspaceName+'")&fetch=ObjectID';
+	var getAlmWorkspaceByName = function(workspaceName, success) {
+		var url = 'workspace?workspace=null&query=(Name = "'+workspaceName+'")&fetch=ObjectID,SchemaVersion';
 		almGet(url,function(data) {
 			var results = data.QueryResult.Results;
 			if (results.length !== 1) {
 				throw "Bad workspace name";
 			}
 
-			callback(results[0]);
+			success(results[0]);
 		});
 	}
 
@@ -118,6 +118,18 @@ var almClient = function(config) {
 		})
 	}
 
+	var getTypeDefByName = function(workspaceName, typeElementName, success){
+		getAlmWorkspaceByName(workspaceName, function(workspace){
+			almGet('https://rally1.rallydev.com/slm/schema/v2.0/workspace/' + workspace.ObjectID + '/' + workspace.SchemaVersion, function(data){
+				j$.each(data.QueryResult.Results, function(key, val){
+					if (val.ElementName === typeElementName){
+						success(val);
+					}
+				});
+			});
+		});
+	}
+
 	var createArtifact = function(projectOid, typeDef, artifact, callback) {
 		var url = typeDef+'/create';
 		var artifactBody = {}
@@ -140,13 +152,14 @@ var almClient = function(config) {
 	
 	var fetchArtifacts = function(oidArray, workspaceOid, success){
 		almGet('artifact?types=Defect,HierarchicalRequirement&fetch=Name,Owner,DisplayName,Project,State,ScheduleState,Discussion,Attachments,ObjectID&workspace=/workspace/'+ workspaceOid + '&pagesize=200&query=' + buildExpression(oidArray), function (data){
-			var result = {};
+			var result = {
+				rallyDefects: [],
+				rallyStories: []
+			};
 			j$.each(data.QueryResult.Results, function(key, value){
 				if (value._type === 'Defect'){
-					result.rallyDefects = result.rallyDefects || [];
 					result.rallyDefects.push(value);
 				} else {
-					result.rallyStories = result.rallyStories || [];
 					result.rallyStories.push(value);
 				}
 			});
@@ -162,6 +175,7 @@ var almClient = function(config) {
 		,createArtifact : createArtifact
 		,fetchArtifacts : fetchArtifacts
 		,parseOidFromUrl : parseOidFromUrl
+		,getTypeDefByName : getTypeDefByName
 	};
 
 };
