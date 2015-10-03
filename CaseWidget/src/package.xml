@@ -17,8 +17,17 @@
 		<name>ApexTrigger</name>
 	</types>
 	<types>
+		<members>Case2RallyArtifact__c</members>
+		<members>Case2Rally_Setup__c</members>
+		<name>CustomObject</name>
+	</types>
+	<types>
+		<members>*</members>
+		<name>CustomTab</name>
+	</types>
+	<types>
 		<members>*</members>
 		<name>StaticResource</name>
 	</types>
-	<version>31.0</version>
+	<version>34.0</version>
 </Package>

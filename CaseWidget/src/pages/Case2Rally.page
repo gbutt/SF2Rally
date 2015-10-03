@@ -1,4 +1,4 @@
-<apex:page showHeader="false" sidebar="false" standardController="Case" extensions="ctr_Case2Rally">
+<apex:page showHeader="false" sidebar="false" standardController="Case">
 	<style type="text/css">
 		.casetorally {
 			padding: 20px;
@@ -30,7 +30,7 @@
 		var setupRecord = sf.fetchSetupRecord();
 
 		var config = {
-			almBaseUrl: 'https://rally1.rallydev.com/slm/webservice/v2.0/'
+			almBaseUrl: setupRecord.rallyUrl+'/slm/webservice/v2.0/'
 			,apiKey: setupRecord.apiKey
 			,almHostname: setupRecord.rallyUrl
 
@@ -58,25 +58,18 @@
 						var template = j$('#rallyView').html();
 						data.hasDefects = function(){return this.rallyDefects.length > 0;};
 						data.hasStories = function(){return this.rallyStories.length > 0;};
-						var addLinkId = function(key, val){
+						var addExtraInfo = function(key, val){
 							val.LinkId = oidToLinkIdMap[val.ObjectID];
+							val.RallyUrl = setupRecord.rallyUrl;
 						};
-						j$.each(data.rallyDefects, addLinkId);
-						j$.each(data.rallyStories, addLinkId);
-						data.formatDetailLink = function(){
-							var oid = this.ObjectID;
-							var type = this._type === 'defect' ? 'defect' : 'userstory';
-							var projectOid = this.Project.ObjectID;
-							return 'https://rally1.rallydev.com/#/' + projectOid + '/detail/' + type + '/' + oid;
-						};
+						j$.each(data.rallyDefects, addExtraInfo);
+						j$.each(data.rallyStories, addExtraInfo);
 						var html = Mustache.render(template, data);
 						j$('#linkedArtifacts').html(html);
 					});
 				} else {
 					j$('#linkedArtifacts').html('No Rally associations.');
 				}
-				
-				
 			}
 
 			// load user defaults - then load projects
@@ -171,7 +164,7 @@
 			{{#rallyStories}}
 				<tr class="dataRow">
 					<td class="dataCell"><a class="disassociate" data-id="{{LinkId}}" href="#">Disassociate</a></td>
-					<td class="dataCell"><a target="_blank" href="https://rally1.rallydev.com/#/{{Project.ObjectID}}/detail/userstory/{{ObjectID}}">{{Name}}</a></td>
+					<td class="dataCell"><a target="_blank" href="{{RallyUrl}}/#/{{Project.ObjectID}}/detail/userstory/{{ObjectID}}">{{Name}}</a></td>
 					<td class="dataCell">{{Owner.DisplayName}}</td>
 					<td class="dataCell">{{ScheduleState}}</td>
 					<td class="dataCell">{{Discussion.Count}}</td>
@@ -195,7 +188,7 @@
 			{{#rallyDefects}}
 				<tr class="dataRow">
 					<td class="dataCell"><a class="disassociate" data-id="{{LinkId}}" href="#">Disassociate</a></td>
-					<td class="dataCell"><a target="_blank" href="https://rally1.rallydev.com/#/{{Project.ObjectID}}/detail/defect/{{ObjectID}}">{{Name}}</a></td>
+					<td class="dataCell"><a target="_blank" href="{{RallyUrl}}/#/{{Project.ObjectID}}/detail/defect/{{ObjectID}}">{{Name}}</a></td>
 					<td class="dataCell">{{Owner.DisplayName}}</td>
 					<td class="dataCell">{{ScheduleState}}</td>
 					<td class="dataCell">{{State}}</td>
