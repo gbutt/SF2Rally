@@ -1,0 +1,36 @@
+<apex:page standardStylesheets="false" sidebar="false" showHeader="false" applyBodyTag="false" applyHtmlTag="false" docType="html-5.0" standardController="Case">
+<html lang="en">
+<head>  
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>Case to Rally</title>
+	<link rel="stylesheet" href="{!URLFOR($Resource.Case2RallyNg, 'css/bootstrap.min.css')}" />
+
+	<script src="/soap/ajax/34.0/connection.js" type="text/javascript"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/angular.min.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/angular-route.min.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/sfdcClient.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/almClient.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/app.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/services.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/controllers.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/directives.js')}"></script>
+	<script type="text/javascript">
+		var config = {
+			sessionId: '{!$Api.Session_ID}', 
+			caseId: '{!Case.id}',
+			resourceUrl: '{!URLFOR($Resource.Case2RallyNg)}'
+		};
+		caseToRally.init(config);
+	</script>
+
+</head>  
+<body>
+
+	<div class="view-container">
+		<div class="view-frame ng-view"></div>
+	</div>
+
+</body>  
+</html>
+</apex:page>

@@ -18,3 +18,5 @@ apex-scripts/*
 !apex-scripts/*.cls
 
 scratch/
+node_modules/
+resource-bundles/Case2RallyNg.resource/bower_components/

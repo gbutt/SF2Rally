@@ -1,0 +1,41 @@
+<h2>Rally Defects</h2>
+<table class="table table-bordered">
+	<tr>
+		<th></th>
+		<th>Name</th>
+		<th>Owner</th>
+		<th>Schedule State</th>
+		<th>State</th>
+		<th>Discussion</th>
+		<th>Attachments</th>
+	</tr>
+	<tr ng-repeat="artifact in defects"> 
+		<td><a ng-click="removeLink(artifact, 'defect');" >Disassociate</a></td>
+		<td><a target="_blank" href="{{RallyUrl}}/#/{{artifact.Project.ObjectID}}/detail/defect/{{artifact.ObjectID}}">{{artifact.Name}}</a></td>
+		<td>{{artifact.Owner.DisplayName}}</td>
+		<td>{{artifact.ScheduleState}}</td>
+		<td>{{artifact.State}}</td>
+		<td>{{artifact.Discussion.Count}}</td>
+		<td>{{artifact.Attachments.Count}}</td>
+	</tr>
+</table>
+<h2>Rally User Stories</h2>
+<table class="table table-bordered">
+	<tr>
+		<th></th>
+		<th>Name</th>
+		<th>Owner</th>
+		<th>Schedule State</th>
+		<th>Discussion</th>
+		<th>Attachments</th>
+	</tr>
+	<tr ng-repeat="artifact in userStories"> 
+		<td><a ng-click="removeLink(artifact, 'userStory');" >Disassociate</a></td>
+		<td><a target="_blank" href="{{RallyUrl}}/#/{{artifact.Project.ObjectID}}/detail/userstory/{{artifact.ObjectID}}">{{artifact.Name}}</a></td>
+		<td>{{artifact.Owner.DisplayName}}</td>
+		<td>{{artifact.ScheduleState}}</td>
+		<td>{{artifact.Discussion.Count}}</td>
+		<td>{{artifact.Attachments.Count}}</td>
+	</tr>
+</table>
+<input type="button" ng-click="refresh();" value="Refresh" />

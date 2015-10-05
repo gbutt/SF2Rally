@@ -1,0 +1,7 @@
+<label for="alm_project">Project: </label>
+<select id="alm_project" ng-model="selectedProjectOid" ng-options="project.ObjectID as project.Name for project in projects">
+</select>
+<br />
+
+<input ng-click="createArtifact('Defect');" id="btn_create_defect" type="button" value="Create Defect"></input>
+<input ng-click="createArtifact('HierarchicalRequirement');" id="btn_create_userstory" type="button" value="Create User Story"></input>
