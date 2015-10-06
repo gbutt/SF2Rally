@@ -5,15 +5,17 @@
 		}
 	</style>
 	
-	<div id="linkedArtifacts"></div>
+	<div id="container">
+		<div id="linkedArtifacts"></div>
 
-	<div class="casetorally">
-		<label for="alm_project">Project: </label>
-		<select id="alm_project"></select>
-		<br />
+		<div class="casetorally">
+			<label for="alm_project">Project: </label>
+			<select id="alm_project"></select>
+			<br />
 
-		<input id="btn_create_defect" type="button" value="Create Defect"></input>
-		<input id="btn_create_userstory" type="button" value="Create User Story"></input>
+			<input id="btn_create_defect" type="button" value="Create Defect"></input>
+			<input id="btn_create_userstory" type="button" value="Create User Story"></input>
+		</div>
 	</div>
 
 
@@ -70,6 +72,7 @@
 				} else {
 					j$('#linkedArtifacts').html('No Rally associations.');
 				}
+				resizeIframe();
 			}
 
 			// load user defaults - then load projects
@@ -135,6 +138,7 @@
 			// show form
 			j$('#alm_project').on('bound', function() {
 				j$('.casetorally').show();
+				resizeIframe();
 			});
 
 			alm.getAlmWorkspaceByName(setupRecord.workspaceName, function(workspace) {
@@ -145,7 +149,11 @@
 			j$(document).on('click', '.disassociate', function(){
 				var id = j$(this).attr('data-id');
 				removeLink(id);
-			})
+			});
+
+			var resizeIframe = function(){
+				parent.postMessage('{"selector": "[title=Case2Rally]", "height":'+document.body.scrollHeight+'}','*');
+			};
 		});
 	</script>
 
