@@ -1,0 +1,55 @@
+<div>
+	This screen allows Salesforce administrators to specify some field values of Rally defects created from support cases.<br />
+	<br />
+	Review the default mapping below, and optionally update the values in the Salesforce Fieldcolumn.<br />
+	<br />
+	<ul>
+		<li>Select &lt;None&gt; when you do not want the respective Rally defect field to be set from Salesforce</li>
+		<li>Select &lt;Default Value&gt; to have all defects created from support cases use the value specified in the Default Value column</li>
+		<li>Select a Salesforce case field to populate the respective Rally defect field</li>
+	</ul>
+	<b>IMPORTANT:</b> When selecting Salesforce case fields of type Picklist, ensure that the Picklist values exactly match the Rally values in the Allowed Values column. For the Rally Owner field, the Default Value must be expressed as a Rally username (ex: bill@abc.com).
+</div>
+<div>
+	<select ng-model="artifactType">
+		<option selected value="Defect">Defect</option>
+		<option value="HierarchicalRequirement">User Story</option>
+	</select>
+	<table class="table table-bordered">
+		<tr>
+			<th>Salesforce Field</th>
+			<th>Default Value</th>
+			<th>Rally Field</th>
+			<th>Rally Type</th>
+		</tr>
+		<tr ng-repeat="row in rows">
+			<td>
+				<select ng-model="row.caseField.value" 
+						ng-options="option.name as option.label for option in row.caseField.options">
+				</select>
+			</td>
+			<td>
+				<ng-switch on="row.defaultField.type()">
+					<span ng-switch-when="select">
+						<select ng-model="row.defaultField.value" 
+							ng-options="option.StringValue as option.StringValue for option in row.defaultField.allowedValues"
+							ng-disabled="row.defaultField.disabled()">
+						</select>
+					</span>
+					<span ng-switch-when="input">
+						<input ng-model="row.defaultField.value" 
+						   ng-disabled="row.defaultField.disabled()">
+				    	</input>
+					</ng-switch>   
+				</span>
+			</td>
+			<td>
+				{{row.rallyFieldName}}
+			</td>
+			<td>
+				{{row.rallyFieldType}}
+			</td>
+		</tr>
+	</table>
+	<input type="button" value="Save Settings" ng-click="saveSettings()" />
+</div>

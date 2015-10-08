@@ -1,7 +1,7 @@
-angular.module('caseToRallyControllers', []).
-	controller('CaseToRallyCtrl', ['$scope', 'sfClient', 'almClient', 'caseToRallyConfig', 
-		function($scope, sfClient, almClient, caseToRallyConfig){
-			$scope.RallyUrl = caseToRallyConfig.setupRecord.rallyUrl;
+angular.module('caseToRallyControllers', [])
+	.controller('CaseToRallyCtrl', ['$scope', 'sfClient', 'almClient', 'appConfig', 
+		function($scope, sfClient, almClient, appConfig){
+			$scope.RallyUrl = appConfig.setupRecord.rallyUrl__c;
 			$scope.removeLink = function(artifact, type) {
 				if (!!artifact) {
 					sfClient.deleteLinkRecord(artifact.LinkId);
@@ -15,7 +15,7 @@ angular.module('caseToRallyControllers', []).
 				}
 			};
 			$scope.refresh = function() {
-				var linkRecords = sfClient.getLinkRecords(caseToRallyConfig.caseId);
+				var linkRecords = sfClient.getLinkRecords(appConfig.caseId);
 				var oids = [];
 				var oidToLinkIdMap = {};
 				angular.forEach(linkRecords, function(record) {
@@ -33,7 +33,7 @@ angular.module('caseToRallyControllers', []).
 			}
 			$scope.createArtifact = function(type) {
 				// get defect mapping
-				var savedFieldMap = caseToRallyConfig.setupRecord[type + 'Map'];
+				var savedFieldMap = JSON.parse(appConfig.setupRecord[type + '_Field_Map__c'] || '{}');
 
 				// get merge fields from case
 				var caseFieldsToQuery = [];
@@ -42,7 +42,7 @@ angular.module('caseToRallyControllers', []).
 						caseFieldsToQuery.push(value.fldValue);
 					}
 				});
-				var caseObj = sfClient.fetchCaseValues(caseToRallyConfig.caseId, caseFieldsToQuery);
+				var caseObj = sfClient.fetchCaseValues(appConfig.caseId, caseFieldsToQuery);
 
 				// create rally artifact
 				var rallyArtifact = {};
@@ -50,11 +50,12 @@ angular.module('caseToRallyControllers', []).
 					rallyArtifact[key] = value.literalValue || caseObj[value.fldValue];
 				});
 				// call wsapi
-				almClient.createArtifact($scope.selectedProjectOid, type, rallyArtifact).then(function(response) {
+				var almType = (type == 'Defect' ? 'Defect' : 'HierarchicalRequirement');
+				almClient.createArtifact($scope.selectedProjectOid, almType, rallyArtifact).then(function(response) {
 					if (response.data.CreateResult.Errors.length>0){
 						alert('failed to create rally object : ' + response.data.CreateResult.Errors.join('\n   '))
 					} else {
-						sfClient.createLinkRecord({Case__c : caseToRallyConfig.caseId, artifactRef__c: response.data.CreateResult.Object._ref});
+						sfClient.createLinkRecord({Case__c : appConfig.caseId, artifactRef__c: response.data.CreateResult.Object._ref});
 						$scope.refresh();
 					}
 				});

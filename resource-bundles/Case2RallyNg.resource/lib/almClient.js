@@ -7,7 +7,8 @@ var almClient = function(config, $http, angular, $q) {
 		workspace = {Name: config.workspaceName}
 	;
 
-	var parseOidFromUrl = function(url) {
+	var exports = {};
+	exports.parseOidFromUrl = function(url) {
 		return url.substring(url.lastIndexOf('/')+1);
 	}
 
@@ -58,7 +59,7 @@ var almClient = function(config, $http, angular, $q) {
 		return promise;
 	};
 
-	var fetchArtifacts = function(oids){
+	exports.fetchArtifacts = function(oids){
 		var promise = getAlmWorkspaceByName().then(function(workspace){
 			var url = 'artifact';
 			var params = {
@@ -87,7 +88,7 @@ var almClient = function(config, $http, angular, $q) {
 		return promise;
 	};
 
-	var fetchUserDefaults = function(){
+	exports.fetchUserDefaults = function(){
 		var promise = getAlmWorkspaceByName().then(function(workspace){
 			var url = 'user:current';
 			var params = {
@@ -99,8 +100,8 @@ var almClient = function(config, $http, angular, $q) {
 					fetch:'ObjectID,DefaultProject,DefaultWorkspace'
 				}
 				return almGet(url, {params:params}).then(function(response) {
-					var projectOid = response.data.UserProfile.DefaultProject.ObjectID;
-					var workspaceOid = response.data.UserProfile.DefaultWorkspace.ObjectID;
+					var projectOid = (response.data.UserProfile.DefaultProject||{}).ObjectID;
+					var workspaceOid = (response.data.UserProfile.DefaultWorkspace||{}).ObjectID;
 					return {
 						projectOid: projectOid 
 						,workspaceOid: workspaceOid
@@ -111,7 +112,7 @@ var almClient = function(config, $http, angular, $q) {
 		return promise;
 	};
 
-	var fetchProjects = function(){
+	exports.fetchProjects = function(){
 		var deferred = $q.defer();
 		var promise = getAlmWorkspaceByName().then(function(workspace){
 			var params = {
@@ -155,7 +156,18 @@ var almClient = function(config, $http, angular, $q) {
 		return deferred.promise;
 	};
 
-	var createArtifact = function(projectOid, typeDef, artifact) {
+	exports.fetchTypeDefSchemaByName = function(artifactType) {
+		var promise = getAlmWorkspaceByName().then(function(workspace){
+			return almGet(schemaBaseUrl+'workspace/' + workspace.ObjectID + '/' + workspace.SchemaVersion).then(function(response){
+				return response.data.QueryResult.Results.filter(function(val){
+					return val.ElementName === artifactType;
+				})[0];
+			});
+		});
+		return promise;
+	};
+
+	exports.createArtifact = function(projectOid, typeDef, artifact) {
 		var url = typeDef+'/create';
 		var artifactBody = {}
 		artifact.Project = '/project/' + projectOid;
@@ -163,11 +175,5 @@ var almClient = function(config, $http, angular, $q) {
 		return almPost(url, artifactBody);
 	};
 
-	return {
-		fetchArtifacts: fetchArtifacts,
-		parseOidFromUrl: parseOidFromUrl,
-		fetchUserDefaults: fetchUserDefaults,
-		fetchProjects: fetchProjects,
-		createArtifact: createArtifact,
-	};
+	return exports;
 };
