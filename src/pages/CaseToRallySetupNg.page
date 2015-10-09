@@ -1,0 +1,46 @@
+<apex:page standardStylesheets="false" sidebar="false" showHeader="false" applyBodyTag="false" applyHtmlTag="false" docType="html-5.0" 
+standardController="Case2Rally_Setup__c">
+<html lang="en">
+<head>  
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>Case to Rally - Artifact Mapper</title>
+	<link rel="stylesheet" href="{!URLFOR($Resource.Angular, 'bootstrap/dist/css/bootstrap.min.css')}" />
+
+	<script src="/soap/ajax/34.0/connection.js" type="text/javascript"></script>
+	<script src="{!URLFOR($Resource.Angular, 'angular/angular.min.js')}"></script>
+	<script src="{!URLFOR($Resource.Angular, 'angular-route/angular-route.min.js')}"></script>
+
+	<!-- <script src="{!URLFOR($Resource.Case2RallyNg, 'dist/caseToRallyNg.min.js')}"></script> -->
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/services/sfServices.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/services/almServices.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/controllers/artifactMapperCtrl.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/apps/c2rSetupApp.js')}"></script>
+	<c:ngforce />
+	<script type="text/javascript">
+		(function(){
+			angular.module('app.config', []).constant('appConfig', {
+				sessionId: '{!$Api.Session_ID}', 
+				resourceUrl: '{!URLFOR($Resource.Case2RallyNg)}',
+				setupRecord: {
+					Id: '{!Case2Rally_Setup__c.Id}',
+					Name: '{!Case2Rally_Setup__c.Name}',
+					Defect_Field_Map__c: '{!Case2Rally_Setup__c.Defect_Field_Map__c}',
+					Story_Field_Map__c: '{!Case2Rally_Setup__c.Story_Field_Map__c}',
+					rallyUrl__c: '{!Case2Rally_Setup__c.rallyUrl__c}',
+					apiKey__c: '{!Case2Rally_Setup__c.apiKey__c}',
+				}
+			});
+		})();
+	</script>
+
+</head>  
+<body ng-app="c2rSetupApp">
+
+	<div class="view-container">
+		<div class="view-frame ng-view"></div>
+	</div>
+
+</body>  
+</html>
+</apex:page>

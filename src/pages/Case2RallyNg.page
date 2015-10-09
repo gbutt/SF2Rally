@@ -4,28 +4,32 @@
 	<meta charset="utf-8"/>
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
 	<title>Case to Rally</title>
-	<link rel="stylesheet" href="{!URLFOR($Resource.Case2RallyNg, 'css/bootstrap.min.css')}" />
+	<link rel="stylesheet" href="{!URLFOR($Resource.Angular, 'bootstrap/dist/css/bootstrap.min.css')}" />
 
 	<script src="/soap/ajax/34.0/connection.js" type="text/javascript"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/angular.min.js')}"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/angular-route.min.js')}"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/sfdcClient.js')}"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'lib/almClient.js')}"></script>
+	<script src="{!URLFOR($Resource.Angular, 'angular/angular.min.js')}"></script>
+	<script src="{!URLFOR($Resource.Angular, 'angular-route/angular-route.min.js')}"></script>
+
+	<!-- <script src="{!URLFOR($Resource.Case2RallyNg, 'dist/caseToRallyNg.min.js')}"></script> -->
 	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/services/sfServices.js')}"></script>
 	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/services/almServices.js')}"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/controllers/caseToRally.js')}"></script>
-	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/apps/caseToRally.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/controllers/caseToRallyCtrl.js')}"></script>
+	<script src="{!URLFOR($Resource.Case2RallyNg, 'js/apps/caseToRallyApp.js')}"></script>
+	<c:ngforce />
 	<script type="text/javascript">
-		var config = {
-			sessionId: '{!$Api.Session_ID}', 
-			caseId: '{!Case.id}',
-			resourceUrl: '{!URLFOR($Resource.Case2RallyNg)}'
-		};
-		caseToRallyApp.init(config);
+		(function(){
+			angular.module('app.config', [])
+				.constant('appConfig', {
+					sessionId: '{!$Api.Session_ID}', 
+					caseId: '{!Case.id}',
+					resourceUrl: '{!URLFOR($Resource.Case2RallyNg)}'
+				})
+			;
+		})();
 	</script>
 
 </head>  
-<body>
+<body ng-app="caseToRallyApp">
 
 	<div class="view-container">
 		<div class="view-frame ng-view"></div>

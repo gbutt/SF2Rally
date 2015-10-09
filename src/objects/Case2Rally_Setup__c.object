@@ -137,4 +137,14 @@
         <showsLocation>false</showsLocation>
         <showsStatus>false</showsStatus>
     </webLinks>
+    <webLinks>
+        <fullName>Map_Fields_Ng</fullName>
+        <availability>online</availability>
+        <displayType>link</displayType>
+        <linkType>page</linkType>
+        <masterLabel>Map Fields Ng</masterLabel>
+        <openType>replace</openType>
+        <page>CaseToRallySetupNg</page>
+        <protected>false</protected>
+    </webLinks>
 </CustomObject>
